@@ -1,12 +1,12 @@
-# Almacén
+# cesta.
 
-**Almacén es un mercado online para quienes quieren comprar productos cotidianos de forma simple y para pequeños negocios que necesitan gestionar su catálogo y pedidos en un mismo lugar.**
+**cesta. es un mercado online para quienes quieren comprar productos cotidianos de forma simple y para pequeños negocios que necesitan gestionar su catálogo y pedidos en un mismo lugar.**
 
 Proyecto final de Programación III · UMAI. La aplicación usa Next.js App Router, Firebase Authentication y Cloud Firestore. El flujo principal es registrarse, agregar productos al carrito, confirmar una compra de prueba y ver el pedido persistido. Los propietarios pueden crear, editar, listar y eliminar productos. Un administrador aprueba a los propietarios y consulta la actividad general.
 
 ## Benchmark
 
-| Producto | Problema y público | Funciones observadas | Qué toma Almacén | Diferencia de Almacén |
+| Producto | Problema y público | Funciones observadas | Qué toma cesta. | Diferencia de cesta. |
 | --- | --- | --- | --- | --- |
 | [Carrefour Argentina](https://www.carrefour.com.ar/como-comprar/) | Comprar supermercado online y revisar el pedido antes de finalizar. | Catálogo, carrito, cuenta, proceso de compra. | Flujo de catálogo a carrito y confirmación. | Interfaz más reducida y panel para negocios independientes. |
 | [DIA Online](https://diaonline.supermercadosdia.com.ar/preguntas-frecuentes) | Compra de productos de supermercado con envío o retiro. | Categorías, compra online, opciones de entrega. | Categorías reconocibles y navegación rápida. | Una misma plataforma admite productos de distintos propietarios. |
@@ -77,6 +77,6 @@ Implementado: ABM de productos, tres roles, búsqueda/filtros/orden, carrito, co
 
 ## Uso de IA
 
-**Consentimiento:** se utilizó Codex para generar la estructura inicial, componentes, estilos, modelo de datos, Route Handlers y documentación. El código debe revisarse y comprenderse antes de la defensa.
+**Consentimiento:** se utilizó Codex para generar la estructura inicial, componentes, estilos, modelo de datos, Route Handlers y documentación. Se utilizó ImageGen para crear la fotografía de la bolsa de compras del hero, tomando la captura aportada como referencia de composición. El código y los recursos deben revisarse y comprenderse antes de la defensa.
 
 **Reflexión inicial:** la IA permitió convertir la consigna en un flujo funcional y coherente con rapidez. Se revisaron especialmente la separación de roles, el aislamiento de datos entre usuarios y la actualización de stock. Tras conectar Firebase, corresponde verificar esos flujos en un entorno real y registrar qué cambios fueron necesarios y qué se aprendió para completar esta reflexión con experiencia propia.
