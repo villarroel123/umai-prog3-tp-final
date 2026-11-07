@@ -1,0 +1,15 @@
+'use client';
+import Link from 'next/link';
+import { ArrowRight, LogOut, Package, Store, UserRound } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase-client';
+export default function AccountPage({ initialUser }) {
+  const router = useRouter(); const [profile, setProfile] = useState(null); const [busy, setBusy] = useState(false);
+  useEffect(() => { fetch('/api/users').then(r => r.json()).then(data => setProfile(data.user)).catch(() => {}); }, []);
+  async function requestOwner() { setBusy(true); const response = await fetch('/api/users', { method: 'PATCH' }); if (response.ok) setProfile(p => ({ ...p, ownerStatus: 'pending' })); setBusy(false); }
+  async function logout() { if (auth) await signOut(auth); await fetch('/api/session', { method: 'DELETE' }); router.push('/'); router.refresh(); }
+  return <div className="container page-space account-page"><div className="page-heading compact-heading"><span className="eyebrow">TU ESPACIO</span><h1>Hola, {initialUser.name.split(' ')[0]}<em>.</em></h1><p>Todo lo que necesitás para seguir comprando.</p></div><div className="account-grid"><div className="account-card profile-card"><div className="account-icon"><UserRound/></div><span className="eyebrow">MI PERFIL</span><h2>{initialUser.name}</h2><p>{initialUser.email}</p><span className="role-badge">{initialUser.role === 'admin' ? 'Administrador' : initialUser.role === 'owner' ? 'Propietario' : 'Comprador'}</span></div><Link className="account-card account-link" href="/pedidos"><div className="account-icon"><Package/></div><span className="eyebrow">TU HISTORIAL</span><h2>Mis pedidos</h2><p>Consultá el estado de tus compras.</p><ArrowRight className="account-arrow"/></Link>{initialUser.role === 'owner' || initialUser.role === 'admin' ? <Link className="account-card account-link" href={initialUser.role === 'admin' ? '/admin' : '/propietario'}><div className="account-icon"><Store/></div><span className="eyebrow">GESTIÓN</span><h2>{initialUser.role === 'admin' ? 'Administración' : 'Mi negocio'}</h2><p>Gestioná productos y pedidos.</p><ArrowRight className="account-arrow"/></Link> : <div className="account-card owner-card"><div className="account-icon"><Store/></div><span className="eyebrow">PARA NEGOCIOS</span><h2>Vendé en Almacén</h2><p>Sumá tus productos al mercado.</p>{profile?.ownerStatus === 'approved' ? <p>Acceso aprobado. Cerrá sesión y volvé a ingresar para activar tu panel.</p> : profile?.ownerStatus === 'pending' ? <span className="role-badge">Solicitud pendiente</span> : <button className="text-button" onClick={requestOwner} disabled={busy}>{busy ? 'Enviando...' : 'Solicitar acceso'} <ArrowRight size={17}/></button>}</div>}</div><button className="logout-button" onClick={logout}><LogOut size={17}/> Cerrar sesión</button></div>;
+}
+

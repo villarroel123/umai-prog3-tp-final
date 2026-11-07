@@ -1,0 +1,10 @@
+'use client';
+import Link from 'next/link';
+import { ArrowRight, Package } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { money, STATUS_LABELS } from '@/lib/models';
+export default function OrdersPage() {
+  const [orders, setOrders] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  useEffect(() => { fetch('/api/orders').then(r => r.json()).then(data => { if (data.error) throw new Error(data.error); setOrders(data.orders); }).catch(e => setError(e.message)).finally(() => setLoading(false)); }, []);
+  return <div className="container page-space"><div className="page-heading compact-heading"><span className="eyebrow">TU HISTORIAL</span><h1>Mis pedidos<em>.</em></h1><p>Seguí tus compras desde un solo lugar.</p></div>{typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('confirmado') && <div className="success-banner">¡Pedido confirmado! Ya podés seguir su estado acá.</div>}{loading ? <p className="state-message">Cargando pedidos...</p> : error ? <p className="state-message">{error}</p> : !orders.length ? <div className="empty-state"><Package size={36}/><h2>Todavía no hay pedidos.</h2><p>Tu próxima compra puede empezar ahora.</p><Link className="button button-dark" href="/catalogo">Explorar productos <ArrowRight size={18}/></Link></div> : <div className="orders-list">{orders.map(order => <article className="order-card" key={order.id}><div className="order-card-head"><div><span className="eyebrow">PEDIDO #{order.id.slice(0, 7).toUpperCase()}</span><h3>{new Date(order.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</h3></div><span className="status-badge">{STATUS_LABELS[order.status]}</span></div><div className="order-lines">{order.items.map(item => <div key={item.productId}><span>{item.quantity} × {item.name}</span><strong>{money(item.price * item.quantity)}</strong></div>)}</div><div className="order-total"><span>Total</span><strong>{money(order.total)}</strong></div></article>)}</div>}</div>;
+}

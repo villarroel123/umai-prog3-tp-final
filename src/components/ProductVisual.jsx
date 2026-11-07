@@ -1,0 +1,2 @@
+const ICONS = { 'Frutas y verduras': '🥑', 'Panadería': '🥖', 'Lácteos': '🥛', 'Almacén': '☕', 'Bebidas': '🍊', 'Limpieza': '🧼' };
+export default function ProductVisual({ product, large = false }) { return <div className={`product-visual category-${Object.keys(ICONS).indexOf(product.category)} ${large ? 'large' : ''}`}><span aria-hidden="true">{product.name.toLowerCase().includes('tomate') ? '🍅' : product.name.toLowerCase().includes('queso') ? '🧀' : ICONS[product.category] || '🛒'}</span><small>{product.category}</small></div>; }

@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // El navegador no accede directamente a Firestore. Todas las operaciones
+    // pasan por Route Handlers que verifican la cookie de sesión y el rol.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,143 +1,82 @@
-# TP Final — Aplicación web completa
+# Almacén
 
-> Programación III · UMAI
-> Tema libre · Next.js · Firebase / PostgreSQL · Vercel
+**Almacén es un mercado online para quienes quieren comprar productos cotidianos de forma simple y para pequeños negocios que necesitan gestionar su catálogo y pedidos en un mismo lugar.**
 
-## Descripción
-
-Desarrollar una aplicación web completa, de tema y tipo a elección, que integre lo trabajado durante la cursada.
-
-El tipo de proyecto es libre: SaaS, ecommerce, experiencia experimental o transmedia, red social de nicho, herramienta interna, plataforma de contenido, etc. Puede retomar y extender un TP anterior o ser una idea nueva.
-
-El resultado debe ser una aplicación funcional, publicada y con un nivel de terminación que permita usarla en producción en el futuro. No se busca cantidad de pantallas, sino una app coherente, bien resuelta y que demuestre lo aprendido.
-
-## Objetivo
-
-Diseñar, desarrollar y publicar una aplicación web propia que:
-
-- Resuelva un problema o proponga una experiencia concreta para un usuario definido.
-- Integre frontend, autenticación, persistencia de datos y deploy.
-- Aplique los conceptos de React y Next.js vistos en clase.
-- Pueda ser explicada y defendida técnicamente por quien la desarrolló.
+Proyecto final de Programación III · UMAI. La aplicación usa Next.js App Router, Firebase Authentication y Cloud Firestore. El flujo principal es registrarse, agregar productos al carrito, confirmar una compra de prueba y ver el pedido persistido. Los propietarios pueden crear, editar, listar y eliminar productos. Un administrador aprueba a los propietarios y consulta la actividad general.
 
 ## Benchmark
 
-Antes de programar, cada estudiante debe analizar entre **2 y 3 productos existentes** similares a su propuesta y documentar en el README:
+| Producto | Problema y público | Funciones observadas | Qué toma Almacén | Diferencia de Almacén |
+| --- | --- | --- | --- | --- |
+| [Carrefour Argentina](https://www.carrefour.com.ar/como-comprar/) | Comprar supermercado online y revisar el pedido antes de finalizar. | Catálogo, carrito, cuenta, proceso de compra. | Flujo de catálogo a carrito y confirmación. | Interfaz más reducida y panel para negocios independientes. |
+| [DIA Online](https://diaonline.supermercadosdia.com.ar/preguntas-frecuentes) | Compra de productos de supermercado con envío o retiro. | Categorías, compra online, opciones de entrega. | Categorías reconocibles y navegación rápida. | Una misma plataforma admite productos de distintos propietarios. |
+| [Coto Digital](https://www.coto.com.ar/coto-digital/) | Compra de alimentos y artículos cotidianos a distancia. | Tienda online y organización de productos. | Amplitud del catálogo por rubros. | Menos promociones simultáneas y mayor foco en claridad visual. |
 
-- Nombre y enlace de cada referencia.
-- Qué problema resuelven y para quién.
-- Funcionalidades principales.
-- Qué se toma como referencia (flujo, navegación, diseño, modelo de datos).
-- Qué diferencia a la propuesta propia.
+## Stack y decisiones
 
-Referencias posibles según el tipo de proyecto:
+- **Next.js 16 + React 19 (JavaScript)**: App Router, rutas dinámicas y metadata por página. Las páginas y las validaciones iniciales de rutas privadas son Server Components; formularios, filtros, carrito y paneles son Client Components.
+- **Firebase Authentication**: correo y contraseña, más Google. El navegador envía un ID token a `/api/session`; el servidor crea una cookie `httpOnly` verificada en cada ruta privada y escritura.
+- **Cloud Firestore + Firebase Admin SDK**: los Route Handlers leen y escriben datos. Las reglas de Firestore niegan el acceso directo desde el navegador. La autorización de cada operación se valida en el servidor. Los pedidos se crean con una transacción que comprueba y descuenta stock.
+- **CSS propio y lucide-react**: sistema visual responsive, con categorías, estados vacíos, carga y error. El catálogo ofrece búsqueda, filtros y ordenamiento.
+- **Vercel**: destino previsto para el deploy de Next.js. Las credenciales aún deben configurarse en el proyecto de Firebase y Vercel.
 
-| Tipo | Referencias |
+### Modelo de datos
+
+| Colección | Campos principales | Relación |
+| --- | --- | --- |
+| `users/{uid}` | `email`, `name`, `role`, `ownerStatus`, `createdAt` | `uid` es el UID de Authentication. El rol efectivo sale de custom claims. |
+| `products/{id}` | `name`, `description`, `category`, `price`, `unit`, `stock`, `featured`, `ownerId`, fechas | `ownerId → users.uid`; solo propietario o admin modifican. |
+| `orders/{id}` | `buyerId`, `buyerName`, `ownerId`, `items[]`, `total`, `status`, `checkoutGroupId`, `createdAt` | `buyerId → users.uid`; `ownerId → users.uid`. Una compra con varios propietarios genera un pedido por propietario. |
+
+Los ítems del pedido guardan una copia de nombre, precio, unidad y cantidad para conservar el historial si cambia el producto. `checkoutGroupId` vincula los pedidos creados desde un mismo carrito. El comprador solo consulta sus pedidos; el propietario solo consulta los suyos.
+
+### Roles
+
+- **Comprador**: rol predeterminado al registrarse. Puede comprar, ver sus pedidos y solicitar acceso de propietario.
+- **Propietario**: el administrador aprueba su solicitud y le asigna un custom claim. Puede gestionar sus productos y cambiar el estado de sus pedidos.
+- **Administrador**: se asigna con `npm run make-admin`; puede ver usuarios y actividad, aprobar propietarios y gestionar productos. Nadie puede autoasignarse este rol desde la web.
+
+### Mapa de navegación
+
+```text
+Inicio → Catálogo → Producto → Carrito → Login/registro → Mis pedidos
+                         ↘ Mi cuenta → Solicitar acceso de propietario
+Administrador → Aprobar negocio → Propietario → Productos (ABM) / Pedidos
+```
+
+## Instalación y conexión con Firebase
+
+1. Ejecutá `npm install` y copiá `.env.example` como `.env.local`.
+2. Creá un proyecto en [Firebase Console](https://console.firebase.google.com/). Agregá una aplicación web y copiá `apiKey`, `authDomain`, `projectId` y `appId` en las variables `NEXT_PUBLIC_*`.
+3. En **Authentication → Sign-in method**, activá **Email/Password** y **Google**. Agregá el dominio de Vercel a los dominios autorizados cuando publiques.
+4. Creá **Cloud Firestore**. Publicá las reglas de `firestore.rules` con Firebase CLI (`firebase deploy --only firestore:rules`) o copiándolas en la consola.
+5. En **Project settings → Service accounts**, generá una clave privada. Copiá `project_id`, `client_email` y `private_key` a `FIREBASE_*` en `.env.local`. Para la clave privada, conservá los saltos de línea como `\n` dentro de comillas. Nunca la subas a Git.
+6. Ejecutá `npm run dev`. Registrá una cuenta desde `/login`.
+7. Para crear el primer administrador: `npm run make-admin -- tu-correo@ejemplo.com`. Cerrá sesión y volvé a ingresar.
+8. Para cargar productos de prueba, registrá otra cuenta y ejecutá `npm run seed -- correo-del-propietario@ejemplo.com`. Cerrá sesión y volvé a ingresar con esa cuenta. El seed crea ocho productos y **duplica los datos si se vuelve a ejecutar**.
+
+Sin variables de entorno, el catálogo muestra productos de muestra para revisar el diseño; login, pedidos y ABM requieren Firebase configurado.
+
+### Variables
+
+| Variable | Uso |
 | --- | --- |
-| SaaS / productividad | Notion, Linear, Trello, Todoist, Cal.com |
-| Ecommerce | Tiendanube, tiendas en Shopify, Mercado Libre |
-| Comunidad / contenido | Letterboxd, Goodreads, Product Hunt |
-| Experimental / transmedia | Sitios premiados en Awwwards, referencias del TP6 |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Configuración pública del SDK web. |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Dominio de Authentication. |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | ID público del proyecto. |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | ID de la aplicación web. |
+| `FIREBASE_PROJECT_ID` | Proyecto del Admin SDK. |
+| `FIREBASE_CLIENT_EMAIL` | Cuenta de servicio del Admin SDK. |
+| `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio. Solo servidor. |
 
-## Stack sugerido
+Para Vercel, copiá estas siete variables en **Project Settings → Environment Variables** y ejecutá el deploy. El repositorio no incluye claves ni usuarios de prueba reales. Antes de entregar, creá un comprador, un propietario y un administrador de prueba y anotá credenciales temporales de corrección por un canal privado; no pongas contraseñas en este README.
 
-- **Next.js** (App Router, JavaScript) + **Tailwind CSS**.
-- **Firebase Authentication** para el login.
-- **Base de datos**, una de las dos opciones:
-  - **Cloud Firestore** (Firebase).
-  - **PostgreSQL** hosteado en **Neon**.
-- **Vercel** para el deploy.
+## Requisitos y estado
 
-Se pueden sumar otras librerías o servicios (Three.js, Stripe en modo test, Resend, Vercel Blob, etc.) siempre que se justifique su uso en el README.
-
-## Requisitos mínimos
-
-### Producto
-
-- Propuesta definida en una oración: qué es, para quién y qué problema resuelve.
-- Al menos una entidad principal propia del dominio con ABM (alta, baja, modificación y listado).
-- Rutas públicas y rutas privadas.
-- Flujo completo de punta a punta: un usuario puede registrarse, usar la funcionalidad principal y ver el resultado persistido.
-- Diseño responsive, consistente y con jerarquía visual clara.
-
-### React y Next.js
-
-Se espera ver aplicados los conceptos trabajados en clase:
-
-- Componentes reutilizables y comunicación mediante props.
-- `useState` y `useEffect` usados donde corresponde.
-- Renderizado de listas con `map` y `key`, y renderizado condicional.
-- Manejo de eventos y formularios con validación.
-- Estado global con Context API cuando la app lo requiera (usuario activo, carrito, preferencias).
-- App Router: layouts, al menos una ruta dinámica (`[id]`, `[slug]`) y navegación con `Link`.
-- Uso justificado de Server Components y Client Components (`"use client"`).
-- Escrituras mediante Server Actions o Route Handlers.
-- Estados de carga, error y vacío (`loading.js`, `error.js`, `not-found.js` o equivalentes).
-- Metadata específica por página.
-
-### Autenticación y datos
-
-- Login con Firebase Authentication (email/contraseña y al menos un proveedor social o anónimo).
-- Datos asociados al usuario autenticado.
-- Un usuario no puede leer ni modificar datos de otro: reglas de Firestore o validación en servidor.
-- Protección de rutas privadas (middleware o validación en servidor).
-- Variables de entorno fuera del repositorio, con un `.env.example` documentado.
-
-### Deploy
-
-- App publicada en Vercel y funcionando con la base de datos en la nube.
-- Datos de prueba cargados y al menos un usuario de prueba para la corrección.
-
-## Opcionales
-
-Suman valor. Se deben elegir **al menos 2**:
-
-- Roles (por ejemplo `admin` / `user`) con panel de administración.
-- Búsqueda, filtros, ordenamiento o paginación.
-- Upload de imágenes (Firebase Storage, Vercel Blob u otro).
-- Envío de emails transaccionales.
-- Pagos simulados o en modo test.
-- Dashboard con gráficos o métricas.
-- SEO: Open Graph, sitemap y metadata dinámica.
-- Dark mode o accesibilidad cuidada (teclado, contraste, textos alternativos).
-- Escena 3D o interacción experimental integrada al producto.
+Implementado: ABM de productos, tres roles, búsqueda/filtros/orden, carrito, compra de prueba, historial, rutas privadas, transacciones de stock, estados de carga/error/vacío, metadata y diseño responsive. Pendiente de credenciales del proyecto: probar la integración real de Firebase, cargar datos remotos, crear usuarios de prueba y publicar en Vercel. También faltan capturas de pantalla del deploy final.
 
 ## Uso de IA
 
-Se permite el uso de herramientas de IA (ChatGPT, Claude, Copilot, Cursor, etc.) con las mismas condiciones que en los TPs anteriores:
+**Consentimiento:** se utilizó Codex para generar la estructura inicial, componentes, estilos, modelo de datos, Route Handlers y documentación. El código debe revisarse y comprenderse antes de la defensa.
 
-- Incluir en el README un **consentimiento sobre el uso de IA**: qué herramientas se usaron y para qué partes del proyecto.
-- Incluir una **reflexión sobre el uso de IA**: qué aportó, qué hubo que corregir y qué se aprendió.
-- Quien entrega debe poder explicar cualquier parte del código. Lo que no se pueda explicar en la defensa no se considera aprobado.
-
-## Entregables
-
-1. Repositorio en GitHub con historial de commits del desarrollo.
-2. Link público a la app en Vercel.
-3. README del proyecto con:
-   - Nombre, propuesta en una oración y descripción.
-   - Benchmark.
-   - Tecnologías utilizadas y decisiones técnicas principales.
-   - Modelo de datos (entidades y relaciones).
-   - Mapa de navegación o diagrama de flujo.
-   - Opcionales implementados.
-   - Instrucciones de instalación, variables de entorno y usuario de prueba.
-   - Capturas de pantalla.
-   - Consentimiento y reflexión sobre el uso de IA.
-4. Presentación y demo en vivo con explicación técnica del código.
-
-## Criterios de evaluación
-
-- Funcionamiento completo del flujo principal en el deploy.
-- Correcta aplicación de los conceptos de React y Next.js.
-- Autenticación, persistencia y seguridad de los datos por usuario.
-- Organización del código: componentes, carpetas y responsabilidades.
-- Calidad del diseño y de la experiencia de uso.
-- Claridad de la documentación y del benchmark.
-- Defensa técnica del proyecto.
-
-Cualquier propuesta superadora será tenida en cuenta.
-
----
-
-**Cátedra Programación III — UMAI**
+**Reflexión inicial:** la IA permitió convertir la consigna en un flujo funcional y coherente con rapidez. Se revisaron especialmente la separación de roles, el aislamiento de datos entre usuarios y la actualización de stock. Tras conectar Firebase, corresponde verificar esos flujos en un entorno real y registrar qué cambios fueron necesarios y qué se aprendió para completar esta reflexión con experiencia propia.
