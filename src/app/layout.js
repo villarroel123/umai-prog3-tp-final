@@ -1,8 +1,13 @@
 import './globals.css';
-import './editorial.css';
+import './operations.css';
+import './panel.css';
+import './theme.css';
+import './catalog-assets.css';
+import './inventory.css';
+import './pos-compact.css';
+import './sales-step3.css';
+import './business-settings.css';
 import { StoreProvider } from '@/context/StoreContext';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-
-export const metadata = { title: { default: 'cesta. — el mercado de todos los días', template: '%s | cesta.' }, description: 'Productos frescos y esenciales para comprar simple, todos los días.' };
-export default function RootLayout({ children }) { return <html lang="es"><body><StoreProvider><Header/><main>{children}</main><Footer/></StoreProvider></body></html>; }
+import SiteFrame from '@/components/SiteFrame';
+export const metadata = { title: { default: 'caja. — cobros en orden', template: '%s | caja.' }, description: 'Sistema de caja para registrar productos, ventas, pagos y comprobantes en un solo lugar.' };
+export default function RootLayout({ children }) { return <html lang="es"><body><StoreProvider><SiteFrame>{children}</SiteFrame></StoreProvider></body></html>; }

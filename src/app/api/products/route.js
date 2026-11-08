@@ -1,18 +1,21 @@
-import { adminConfigured, db } from '@/lib/firebase-admin';
-import { canManage, sessionUser } from '@/lib/session';
-import { CATEGORIES, DEMO_PRODUCTS } from '@/lib/models';
+import { db } from '@/lib/firebase-admin';
+import { sessionUser } from '@/lib/session';
+import { codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
 import { fail, json, safeError } from '@/lib/api';
 
 export async function GET(request) {
   try {
-    if (!adminConfigured) return json({ products: DEMO_PRODUCTS, demo: true });
-    const owner = new URL(request.url).searchParams.get('owner');
     const user = await sessionUser();
-    if (owner && (!user || (user.role !== 'admin' && user.uid !== owner))) return fail('Sin permiso.', 403);
-    const query = owner ? db().collection('products').where('ownerId', '==', owner) : db().collection('products');
+    if (!user) return fail('Iniciá sesión.', 401);
+    if (!['owner', 'admin'].includes(user.role)) return fail('Sin permiso.', 403);
+    const url = new URL(request.url);
+    const requestedOwner = url.searchParams.get('owner');
+    if (requestedOwner && user.role !== 'admin' && requestedOwner !== user.businessId) return fail('Sin permiso.', 403);
+    const ownerId = requestedOwner || (user.role === 'owner' ? user.businessId : null);
+    const query = ownerId ? db().collection('products').where('ownerId', '==', ownerId) : db().collection('products');
     const snapshot = await query.get();
-    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return json({ products, demo: false });
+    const includeArchived = url.searchParams.get('includeArchived') === '1' && user.role === 'owner';
+    return json({ products: snapshot.docs.map(doc => normalizeProduct(doc.id, doc.data())).filter(product => includeArchived || product.isActive).sort((a, b) => a.name.localeCompare(b.name, 'es')) });
   } catch (error) { return safeError(error); }
 }
 
@@ -20,18 +23,23 @@ export async function POST(request) {
   try {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
-    if (!canManage(user)) return fail('Sin permiso.', 403);
-    const body = await request.json();
-    const name = String(body.name || '').trim();
-    const description = String(body.description || '').trim();
-    const category = String(body.category || '');
-    const price = Number(body.price);
-    const stock = Number(body.stock);
-    const unit = String(body.unit || '').trim();
-    if (name.length < 3 || name.length > 80 || description.length > 400 || !CATEGORIES.includes(category) || !Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0 || !unit || unit.length > 30) return fail('Revisá los datos del producto.');
+    if (user.role !== 'owner') return fail('Solo un propietario puede cargar productos.', 403);
+    const database = db();
+    const ref = database.collection('products').doc();
+    let product;
+    try { product = parseProduct(await request.json()); } catch (error) { return fail(error.message); }
+    let category;
+    try { category = await resolveCategory(database, user.businessId, product.categoryId); } catch (error) { return fail(error.message); }
+    if (product.barcode && await codeTaken(database, user.businessId, product.barcode)) return fail('Ya existe un producto con ese código de barras.', 409);
+    const code = product.barcode || `INT-${ref.id.slice(0, 12)}`;
     const now = new Date().toISOString();
-    const product = { name, description, category, price, stock, unit, ownerId: user.uid, featured: Boolean(body.featured), createdAt: now, updatedAt: now };
-    const ref = await db().collection('products').add(product);
-    return json({ product: { id: ref.id, ...product } }, 201);
+    const data = {
+      ...product, code, categoryId: category.id, category: category.name,
+      imageUrl: product.imageUrl,
+      price: product.salePrice, ownerId: user.businessId, businessId: user.businessId,
+      isActive: true, isSample: false, createdAt: now, updatedAt: now,
+    };
+    await ref.create(data);
+    return json({ product: normalizeProduct(ref.id, data) }, 201);
   } catch (error) { return safeError(error); }
 }

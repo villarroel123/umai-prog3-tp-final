@@ -1,1 +1,1 @@
-export default function Loading() { return <div className="container page-space state-message">Preparando el mercado...</div>; }
+export default function Loading() { return <div className="inner-page data-empty">Preparando la caja...</div>; }

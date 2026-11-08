@@ -1,3 +1,2 @@
-import Link from 'next/link';
 import Brand from './Brand';
-export default function Footer() { return <footer className="footer"><div className="container footer-grid"><div><Brand/><p>Una forma más simple y agradable de llenar tu mesa.</p></div><div><strong>Explorá</strong><Link href="/catalogo">Productos</Link><Link href="/catalogo?category=Frutas+y+verduras">Frescos</Link><Link href="/catalogo?category=Almacén">Almacén</Link></div><div><strong>Tu cuenta</strong><Link href="/cuenta">Mi cuenta</Link><Link href="/pedidos">Mis pedidos</Link><Link href="/login">Ingresar</Link></div><div className="footer-note">Hecho para comprar bien,<br/>todos los días.<span>© {new Date().getFullYear()} cesta.</span></div></div></footer>; }
+export default function Footer() { return <footer className="footer"><div className="footer-inner"><Brand/><span>Una caja clara para cada venta.</span><span>© {new Date().getFullYear()} caja.</span></div></footer>; }

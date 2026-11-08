@@ -1,0 +1,46 @@
+@media(min-width:901px){
+  .pos-grid{align-items:start}
+  .products-panel,.ticket-panel{position:sticky;top:16px;display:flex;flex-direction:column;height:min(790px,calc(100dvh - 32px));min-height:0;margin-top:0}
+  .product-list,.ticket-lines{min-height:0;overflow-y:auto;scrollbar-width:thin;overscroll-behavior:contain}
+  .product-list{flex:1}
+  .ticket-lines{flex:1 1 auto;max-height:none}
+  .products-foot,.ticket-head,.ticket-customer,.ticket-meta,.ticket-total{flex:none}
+  .payment-block{display:flex;flex-direction:column;flex:0 1 auto;min-height:168px;max-height:48%;overflow:hidden}
+  .payment-details{min-height:0;overflow-y:auto;scrollbar-width:thin}
+  .payment-footer{flex:none;background:#fff}
+}
+.product-list-head{position:sticky;top:0;z-index:2}
+.product-row{min-height:57px;padding-block:7px}
+.product-row .product-thumb,.product-row .product-initial{width:35px;height:35px}
+.product-row:disabled{opacity:.68}
+.product-row:disabled .add-product{visibility:hidden}
+.product-row:disabled .product-identity strong{color:#8d8d98}
+.products-foot{padding-block:14px}
+.ticket-head{padding:17px 19px 10px}
+.ticket-customer{padding:0 19px 10px}
+.ticket-meta{padding:8px 19px}
+.ticket-line{padding:9px 18px 8px}
+.ticket-line-top strong{font-size:11px}
+.ticket-line-bottom{margin-top:5px}
+.ticket-line-bottom>strong{min-width:70px}
+.ticket-line-bottom>span{font-size:10px}
+.line-adjustment-toggle{display:inline-flex;align-items:center;gap:4px;margin-top:5px;padding:2px 0;border:0;background:none;color:#8a6aab;font-size:10px;font-weight:700}
+.line-adjustment-toggle svg{transition:transform .15s}
+.line-adjustment-toggle svg.open{transform:rotate(180deg)}
+.line-adjustment{padding-top:6px}
+.ticket-total{padding:9px 18px;border-top:1px solid var(--line)}
+.ticket-total>div{padding:4px 0}
+.ticket-total .total-row{margin-top:3px;padding-top:9px}
+.ticket-total .total-row strong{color:#8a4dc6;font-size:27px}
+.payment-block{padding:10px 18px 14px}
+.payment-heading h3{margin:4px 0 7px}
+.payment-options button{min-height:48px}
+.cash-fields{margin-top:8px}
+.buyer-field{margin-top:8px}
+.charge-button{height:46px;min-height:46px;margin-top:9px;border-color:#9156cf;background:#9156cf}
+.charge-button:not(:disabled):hover{background:#7d42bc}
+.payment-disclaimer{margin:6px 0 0}
+.payment-options button.selected{border-color:#b785e6;background:#f5ecfd;color:#8049bb}
+.empty-list .text-link{margin-top:6px}
+@media(max-width:900px){.products-panel,.ticket-panel{position:static;height:auto;min-height:0}.product-list{max-height:390px;overflow-y:auto}.ticket-lines{min-height:110px;max-height:260px}.payment-details{overflow:visible}.payment-block{max-height:none}.payment-footer{position:static}.product-list-head{position:sticky;top:0}}
+@media(max-width:580px){.product-row{min-height:57px}.ticket-line{padding-inline:14px}.ticket-total{padding-inline:14px}.payment-block{padding-inline:14px}.inventory-card>.product-initial{display:grid}}

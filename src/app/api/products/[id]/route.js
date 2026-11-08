@@ -1,57 +1,54 @@
-import { adminConfigured, db } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-admin';
 import { sessionUser } from '@/lib/session';
-import { CATEGORIES, DEMO_PRODUCTS } from '@/lib/models';
+import { codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
 import { fail, json, safeError } from '@/lib/api';
+
+async function findAuthorized(id, user, mutate = false) {
+  if (mutate && user.role !== 'owner') return { error: fail('Solo un propietario puede modificar productos.', 403) };
+  const ref = db().collection('products').doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return { error: fail('Producto no encontrado.', 404) };
+  if (user.role !== 'admin' && (user.role !== 'owner' || snap.data().ownerId !== user.businessId)) return { error: fail('Sin permiso.', 403) };
+  return { ref, snap };
+}
 
 export async function GET(_request, { params }) {
   try {
-    const { id } = await params;
-    if (!adminConfigured) {
-      const product = DEMO_PRODUCTS.find(item => item.id === id);
-      return product ? json({ product, demo: true }) : fail('Producto no encontrado.', 404);
-    }
-    const snap = await db().collection('products').doc(id).get();
-    return snap.exists ? json({ product: { id: snap.id, ...snap.data() } }) : fail('Producto no encontrado.', 404);
+    const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
+    const result = await findAuthorized((await params).id, user);
+    return result.error || json({ product: normalizeProduct(result.snap.id, result.snap.data()) });
   } catch (error) { return safeError(error); }
 }
 
 export async function PATCH(request, { params }) {
   try {
-    const user = await sessionUser();
-    if (!user) return fail('Iniciá sesión.', 401);
-    const { id } = await params;
-    const ref = db().collection('products').doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return fail('Producto no encontrado.', 404);
-    if (user.role !== 'admin' && (user.role !== 'owner' || snap.data().ownerId !== user.uid)) return fail('Sin permiso.', 403);
-    const body = await request.json();
-    const allowed = ['name', 'description', 'category', 'price', 'stock', 'unit', 'featured'];
-    const changes = Object.fromEntries(Object.entries(body).filter(([key]) => allowed.includes(key)));
-    if ('name' in changes && (typeof changes.name !== 'string' || changes.name.trim().length < 3 || changes.name.length > 80)) return fail('Nombre inválido.');
-    if ('description' in changes && (typeof changes.description !== 'string' || changes.description.length > 400)) return fail('Descripción inválida.');
-    if ('category' in changes && !CATEGORIES.includes(changes.category)) return fail('Categoría inválida.');
-    if ('price' in changes && (!Number.isFinite(Number(changes.price)) || Number(changes.price) <= 0)) return fail('Precio inválido.');
-    if ('stock' in changes && (!Number.isInteger(Number(changes.stock)) || Number(changes.stock) < 0)) return fail('Stock inválido.');
-    if ('unit' in changes && (typeof changes.unit !== 'string' || !changes.unit.trim() || changes.unit.length > 30)) return fail('Unidad inválida.');
-    if ('featured' in changes && typeof changes.featured !== 'boolean') return fail('Valor destacado inválido.');
-    if ('price' in changes) changes.price = Number(changes.price);
-    if ('stock' in changes) changes.stock = Number(changes.stock);
-    changes.updatedAt = new Date().toISOString();
-    await ref.update(changes);
-    return json({ product: { id, ...snap.data(), ...changes } });
+    const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
+    const result = await findAuthorized((await params).id, user, true); if (result.error) return result.error;
+    const previous = normalizeProduct(result.snap.id, result.snap.data());
+    let product;
+    try { product = parseProduct({ ...previous, ...await request.json() }); } catch (error) { return fail(error.message); }
+    if (product.stock !== previous.stock) return fail('Usá Ajustar stock para registrar el motivo del cambio.');
+    let category;
+    try { category = await resolveCategory(db(), user.businessId, product.categoryId, previous.category); } catch (error) { return fail(error.message); }
+    if (product.barcode && await codeTaken(db(), user.businessId, product.barcode, result.snap.id)) return fail('Ya existe un producto con ese código de barras.', 409);
+    const changes = {
+      ...product, code: product.barcode || `INT-${result.snap.id.slice(0, 12)}`,
+      categoryId: category.id, category: category.name,
+      price: product.salePrice, updatedAt: new Date().toISOString(),
+    };
+    delete changes.stock;
+    await result.ref.update(changes);
+    return json({ product: normalizeProduct(result.snap.id, { ...result.snap.data(), ...changes }) });
   } catch (error) { return safeError(error); }
 }
 
 export async function DELETE(_request, { params }) {
   try {
-    const user = await sessionUser();
-    if (!user) return fail('Iniciá sesión.', 401);
-    const { id } = await params;
-    const ref = db().collection('products').doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return fail('Producto no encontrado.', 404);
-    if (user.role !== 'admin' && (user.role !== 'owner' || snap.data().ownerId !== user.uid)) return fail('Sin permiso.', 403);
-    await ref.delete();
+    const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
+    const result = await findAuthorized((await params).id, user, true); if (result.error) return result.error;
+    if (result.snap.data().archivedAt || result.snap.data().isActive === false) return json({ ok: true });
+    const now = new Date().toISOString();
+    await result.ref.update({ isActive: false, archivedAt: now, updatedAt: now });
     return json({ ok: true });
   } catch (error) { return safeError(error); }
 }

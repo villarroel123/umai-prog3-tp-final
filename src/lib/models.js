@@ -1,21 +1,15 @@
-/** @typedef {'buyer'|'owner'|'admin'} Role */
-/** @typedef {{uid:string,email:string,name:string,role:Role,ownerStatus:'none'|'pending'|'approved',createdAt:string}} UserProfile */
-/** @typedef {{id:string,name:string,description:string,category:string,price:number,unit:string,stock:number,ownerId:string,featured:boolean,createdAt:string,updatedAt:string}} Product */
-/** @typedef {{productId:string,name:string,price:number,quantity:number,ownerId:string,unit:string}} OrderItem */
-/** @typedef {{id:string,buyerId:string,buyerName:string,ownerId:string,items:OrderItem[],total:number,status:'placed'|'preparing'|'ready'|'delivered'|'cancelled',checkoutGroupId:string,createdAt:string}} Order */
+/** @typedef {'owner'|'admin'} Role */
+/** @typedef {{uid:string,email:string,name:string,role:Role,businessId:string|null,createdAt:string}} UserProfile */
+/** @typedef {{id:string,businessId:string,ownerId:string,name:string,barcode:string,code:string,categoryId:string,category:string,description:string,salePrice:number,price:number,costPrice:number|null,stock:number,minStock:number,unit:'unidad'|'kilogramo'|'litro',imageUrl:string,isActive:boolean,createdAt:string,updatedAt:string}} Product */
+/** @typedef {{id:string,ownerId:string,businessId:string,name:string,isDefault?:boolean,createdAt:string,updatedAt:string}} Category */
+/** @typedef {{id:string,ownerId:string,businessId:string,productId:string,productName:string,previousStock:number,newStock:number,delta:number,reason:string,saleId?:string,actorId:string,createdAt:string}} InventoryMovement */
+/** @typedef {{id:string,ownerId:string,openedBy:string,businessName:string,registerName:string,openingAmount:number,cashAdjustmentsTotal:number,cashMovementsCount:number,voidedTotal:number,voidCount:number,closingAmount?:number,expectedClosingAmount?:number,difference?:number,cashSalesTotal:number,grossTotal:number,salesCount:number,status:'open'|'closed',openedAt:string,closedAt?:string}} CashSession */
+/** @typedef {{id:string,ownerId:string,cashSessionId:string,type:'in'|'out',amount:number,note:string,createdAt:string}} CashMovement */
+/** @typedef {{productId:string,code:string,name:string,category:string,unit:string,unitPrice:number,quantity:number,baseTotal:number,adjustment:{type:'none'|'discount'|'surcharge',percent:number},adjustmentAmount:number,lineTotal:number}} SaleItem */
+/** @typedef {{id:string,ownerId:string,businessId:string,cashierId:string,cashierName:string,businessName:string,buyerName:string,cashSessionId:string,receiptNumber:number,registerName:string,items:SaleItem[],baseSubtotal:number,lineAdjustmentsTotal:number,subtotal:number,adjustment:{type:'none'|'discount'|'surcharge',percent:number},saleAdjustmentAmount:number,total:number,payments:{method:'cash'|'card'|'transfer',amount:number,reference:string}[],paymentMethod:'cash'|'card'|'transfer'|'mixed',amountReceived:number,change:number,transferConfirmedAt:string|null,transferConfirmedBy:string|null,requestHash:string,status:'completed'|'voided',voidReason?:string,voidedAt?:string,createdAt:string}} Sale */
 
-export const CATEGORIES = ['Almacén', 'Frutas y verduras', 'Lácteos', 'Panadería', 'Bebidas', 'Limpieza'];
-export const ORDER_STATUSES = ['placed', 'preparing', 'ready', 'delivered', 'cancelled'];
-export const STATUS_LABELS = { placed: 'Recibido', preparing: 'Preparando', ready: 'Listo para retirar', delivered: 'Entregado', cancelled: 'Cancelado' };
-export const money = (value) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value);
-
-export const DEMO_PRODUCTS = [
-  { id: 'demo-1', name: 'Palta Hass', description: 'Fresca y cremosa, seleccionada para tu mesa.', category: 'Frutas y verduras', price: 4200, unit: 'kg', stock: 22, ownerId: 'demo', featured: true, createdAt: '', updatedAt: '' },
-  { id: 'demo-2', name: 'Tomate redondo', description: 'Tomates de estación, ideales para ensaladas.', category: 'Frutas y verduras', price: 2800, unit: 'kg', stock: 35, ownerId: 'demo', featured: true, createdAt: '', updatedAt: '' },
-  { id: 'demo-3', name: 'Pan de masa madre', description: 'Corteza crujiente y miga suave.', category: 'Panadería', price: 6500, unit: 'unidad', stock: 12, ownerId: 'demo', featured: true, createdAt: '', updatedAt: '' },
-  { id: 'demo-4', name: 'Leche entera', description: 'Leche fresca de primera calidad.', category: 'Lácteos', price: 2400, unit: 'litro', stock: 40, ownerId: 'demo', featured: false, createdAt: '', updatedAt: '' },
-  { id: 'demo-5', name: 'Café molido', description: 'Tu ritual de todos los días.', category: 'Almacén', price: 9900, unit: '250 g', stock: 18, ownerId: 'demo', featured: false, createdAt: '', updatedAt: '' },
-  { id: 'demo-6', name: 'Jugo de naranja', description: 'Sabor fresco para cualquier momento.', category: 'Bebidas', price: 3600, unit: 'litro', stock: 26, ownerId: 'demo', featured: false, createdAt: '', updatedAt: '' },
-  { id: 'demo-7', name: 'Detergente cítrico', description: 'Limpieza práctica para tu cocina.', category: 'Limpieza', price: 3100, unit: '750 ml', stock: 16, ownerId: 'demo', featured: false, createdAt: '', updatedAt: '' },
-  { id: 'demo-8', name: 'Queso cremoso', description: 'Suave y versátil para tus comidas.', category: 'Lácteos', price: 7900, unit: 'kg', stock: 10, ownerId: 'demo', featured: false, createdAt: '', updatedAt: '' }
-];
+export const CATEGORIES = ['Almacén', 'Bebidas', 'Lácteos', 'Panadería', 'Frutas y verduras', 'Limpieza', 'Otros'];
+export const PAYMENT_METHODS = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', mixed: 'Combinado' };
+export const money = value => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0);
+export const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+export const receiptCode = number => `V-${String(number).padStart(6, '0')}`;

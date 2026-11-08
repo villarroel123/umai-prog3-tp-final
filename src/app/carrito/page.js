@@ -1,3 +1,2 @@
-import CartPage from '@/components/CartPage';
-export const metadata = { title: 'Mi carrito' };
-export default function Page() { return <CartPage/>; }
+import { redirect } from 'next/navigation';
+export default function Page() { redirect('/caja'); }
