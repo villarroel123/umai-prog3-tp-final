@@ -89,6 +89,18 @@ button.demo-shortcut:not(:disabled):hover .demo-shortcut-key{background:#a66de8;
 .demo-checkout.is-light:hover:not(:disabled){background:#e5dff0}
 .demo-screen button:focus-visible,.demo-screen input:focus-visible,.demo-modal button:focus-visible,.demo-modal input:focus-visible{outline:3px solid #5b2da3;outline-offset:2px}
 .demo-search input:focus-visible{outline:0}
+.demo-start{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;background:rgba(23,23,27,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.demo-start-card{width:min(440px,100%);padding:30px;display:grid;gap:17px;border:1px solid #e2dcee;border-radius:16px;background:rgba(255,255,255,.97);box-shadow:0 24px 70px rgba(0,0,0,.25);animation:demo-card-in .28s ease-out both}
+@keyframes demo-card-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.demo-screen.demo-screen-enter{animation:demo-screen-in .38s ease-out both}
+@keyframes demo-screen-in{from{opacity:.72;transform:scale(1.012);filter:blur(3px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
+@media(prefers-reduced-motion:reduce){.demo-start-card,.demo-screen.demo-screen-enter{animation:none}}
+.demo-start-card h1{margin:0;font-size:25px;letter-spacing:-.03em}
+.demo-start-card p{margin:0;color:#716b7e;font-size:14px;line-height:1.5}
+.demo-start-card label{display:grid;gap:7px;color:#5d5870;font-size:13px;font-weight:600}
+.demo-start-card input{width:100%;height:46px;padding:0 13px;border:1px solid #d9d2e8;border-radius:8px;background:#fff;color:#1c1b22;font:inherit;font-size:15px}
+.demo-start-card button{width:100%;min-height:50px;margin-top:3px;border:0;border-radius:9px;background:#7a3fd0;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.demo-start-card button:hover{background:#9256d2}
 
 @media(max-width:900px){
 .demo-screen{padding:10px;overflow:auto}
@@ -122,6 +134,9 @@ const METHODS = ['Efectivo', 'Tarjeta', 'Transferencia'];
 const money = amount => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(amount);
 
 export default function DemoPage() {
+  const [businessName, setBusinessName] = useState('');
+  const [cashierName, setCashierName] = useState('');
+  const [started, setStarted] = useState(false);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState({});
   const [selectedId, setSelectedId] = useState(null);
@@ -367,13 +382,23 @@ export default function DemoPage() {
   return (
     <>
       <style>{DEMO_CSS}</style>
-      <div className="demo-screen">
+      {!started && <div className="demo-start">
+        <form className="demo-start-card" onSubmit={event => { event.preventDefault(); setBusinessName(businessName.trim()); setCashierName(cashierName.trim()); setStarted(true); }}>
+          <span className="demo-shortcut-key">DEMO</span>
+          <h1>Prepará tu caja</h1>
+          <p>Ingresá el nombre de tu negocio y del cajero para personalizar esta demostración.</p>
+          <label>Nombre del negocio<input value={businessName} onChange={event => setBusinessName(event.target.value)} required minLength={2} maxLength={60} autoFocus placeholder="Mi negocio" /></label>
+          <label>Nombre del cajero<input value={cashierName} onChange={event => setCashierName(event.target.value)} required minLength={2} maxLength={60} placeholder="Nombre del cajero" /></label>
+          <button type="submit">Entrar a la demo</button>
+        </form>
+      </div>}
+      <div className={`demo-screen${started ? ' demo-screen-enter' : ''}`}>
         <div className="demo-frame">
           <header className="demo-left-head">
             <div className="demo-bar">
-              <strong className="demo-business">NOMBRE NEGOCIO</strong>
+              <strong className="demo-business">{businessName || 'NOMBRE NEGOCIO'}</strong>
               <span className="demo-spacer" />
-              <div className="demo-chip">Cajero: <strong>Nombre cajero</strong></div>
+              <div className="demo-chip">Cajero: <strong>{cashierName || 'Nombre cajero'}</strong></div>
               <div className="demo-chip demo-date">{now?.date || '—'}</div>
               <div className="demo-chip"><strong>{now?.time || '—'}</strong></div>
             </div>
