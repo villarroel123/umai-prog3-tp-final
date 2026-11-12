@@ -151,3 +151,13 @@ test('una venta confirmada alimenta historial, resumen y stock bajo', async () =
   assert.equal(overview.todayTotal, 200);
   assert.equal(overview.lowStock.length, 1);
 });
+
+test('otro propietario cobra con el inventario compartido y queda identificado', async () => {
+  const state = memoryDb(1);
+  const member = { uid: 'owner-2', businessId: 'owner-1', name: 'Socio' };
+  const sale = await recordSale(state.db, member, checkout(14));
+  assert.equal(sale.ownerId, 'owner-1');
+  assert.equal(sale.cashierId, 'owner-2');
+  assert.equal(state.data('products/p1').stock, 0);
+  assert.equal(state.data('cashSessions/session-1').salesCount, 1);
+});

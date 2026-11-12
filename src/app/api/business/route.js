@@ -22,7 +22,16 @@ export async function PATCH(request) {
     if (!user || user.role !== 'owner') return fail('Iniciá sesión como propietario.', 403);
     const name = String((await request.json()).name || '').trim();
     if (name.length < 2 || name.length > 60) return fail('El nombre debe tener entre 2 y 60 caracteres.');
-    await db().collection('businesses').doc(user.businessId).set({ ownerId: user.businessId, name, updatedAt: new Date().toISOString() }, { merge: true });
+    const database = db();
+    const businessRef = database.collection('businesses').doc(user.businessId);
+    await database.runTransaction(async transaction => {
+      const business = await transaction.get(businessRef);
+      const activeRef = business.data()?.activeSessionId ? database.collection('cashSessions').doc(business.data().activeSessionId) : null;
+      const active = activeRef ? await transaction.get(activeRef) : null;
+      const updatedAt = new Date().toISOString();
+      transaction.set(businessRef, { ownerId: user.businessId, name, updatedAt }, { merge: true });
+      if (active?.exists && active.data().ownerId === user.businessId && active.data().status === 'open') transaction.update(activeRef, { businessName: name });
+    });
     return json({ name });
   } catch (error) { return safeError(error); }
 }
