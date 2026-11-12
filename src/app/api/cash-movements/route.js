@@ -6,7 +6,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const id = new URL(request.url).searchParams.get('sessionId');
     if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return fail('Indicá una caja válida.');
     const session = await db().collection('cashSessions').doc(id).get();
@@ -19,7 +19,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Solo un propietario puede registrar movimientos.', 403);
+    if (user.role !== 'business_owner') return fail('Solo un propietario puede registrar movimientos.', 403);
     const body = await request.json();
     if (!body || typeof body !== 'object') return fail('Datos inválidos.');
     const type = body.type;

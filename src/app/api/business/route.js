@@ -5,7 +5,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET() {
   try {
     const user = await sessionUser();
-    if (!user || user.role !== 'owner') return fail('Iniciá sesión como propietario.', 403);
+    if (!user || user.role !== 'business_owner') return fail('Iniciá sesión como propietario.', 403);
     const database = db();
     const business = await database.collection('businesses').doc(user.businessId).get();
     const [members, invitations] = await Promise.all([
@@ -19,7 +19,7 @@ export async function GET() {
 export async function PATCH(request) {
   try {
     const user = await sessionUser();
-    if (!user || user.role !== 'owner') return fail('Iniciá sesión como propietario.', 403);
+    if (!user || user.role !== 'business_owner') return fail('Iniciá sesión como propietario.', 403);
     const name = String((await request.json()).name || '').trim();
     if (name.length < 2 || name.length > 60) return fail('El nombre debe tener entre 2 y 60 caracteres.');
     const database = db();
@@ -29,7 +29,7 @@ export async function PATCH(request) {
       const activeRef = business.data()?.activeSessionId ? database.collection('cashSessions').doc(business.data().activeSessionId) : null;
       const active = activeRef ? await transaction.get(activeRef) : null;
       const updatedAt = new Date().toISOString();
-      transaction.set(businessRef, { ownerId: user.businessId, name, updatedAt }, { merge: true });
+      transaction.set(businessRef, { ownerId: user.businessId, name, status: business.data()?.status || 'active', updatedAt }, { merge: true });
       if (active?.exists && active.data().ownerId === user.businessId && active.data().status === 'open') transaction.update(activeRef, { businessName: name });
     });
     return json({ name });

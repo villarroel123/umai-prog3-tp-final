@@ -4,11 +4,11 @@ import { codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/li
 import { fail, json, safeError } from '@/lib/api';
 
 async function findAuthorized(id, user, mutate = false) {
-  if (mutate && user.role !== 'owner') return { error: fail('Solo un propietario puede modificar productos.', 403) };
+  if (mutate && user.role !== 'business_owner') return { error: fail('Solo un propietario puede modificar productos.', 403) };
   const ref = db().collection('products').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return { error: fail('Producto no encontrado.', 404) };
-  if (user.role !== 'admin' && (user.role !== 'owner' || snap.data().ownerId !== user.businessId)) return { error: fail('Sin permiso.', 403) };
+  if (!['business_owner', 'cashier'].includes(user.role) || snap.data().ownerId !== user.businessId) return { error: fail('Sin permiso.', 403) };
   return { ref, snap };
 }
 

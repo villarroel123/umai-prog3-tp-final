@@ -6,7 +6,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function PATCH(request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const database = db();
     const ref = database.collection('categories').doc((await params).id);
     const [snap, allCategories] = await Promise.all([ref.get(), database.collection('categories').where('ownerId', '==', user.businessId).get()]);
@@ -30,7 +30,7 @@ export async function PATCH(request, { params }) {
 export async function DELETE(_request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const database = db();
     const ref = database.collection('categories').doc((await params).id);
     const snap = await ref.get();

@@ -20,7 +20,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await sessionUser();
-    if (!user || user.role !== 'owner') return fail('Ingresá con la cuenta invitada.', 401);
+    if (!user || user.role === 'platform_admin' || user.role === 'cashier') return fail('Ingresá con la cuenta invitada.', 401);
     const token = String((await request.json()).token || '');
     if (!validToken(token)) return fail('Invitación inválida.');
     const database = db();
@@ -36,8 +36,8 @@ export async function POST(request) {
       const businessRef = database.collection('businesses').doc(invitation.data().businessId);
       const business = await transaction.get(businessRef);
       if (!business.exists) throw new Error('El negocio ya no está disponible.');
-      transaction.set(businessRef.collection('members').doc(user.uid), { email: user.email.toLowerCase(), name: user.name, status: 'active', joinedAt: new Date().toISOString() });
-      transaction.set(profileRef, { uid: user.uid, email: user.email.toLowerCase(), name: user.name, role: 'owner', businessId: businessRef.id }, { merge: true });
+      transaction.set(businessRef.collection('members').doc(user.uid), { userId: user.uid, businessId: businessRef.id, email: user.email.toLowerCase(), name: user.name, role: 'business_owner', status: 'active', joinedAt: new Date().toISOString() });
+      transaction.set(profileRef, { uid: user.uid, email: user.email.toLowerCase(), name: user.name, role: 'business_owner', businessId: businessRef.id }, { merge: true });
       transaction.update(invitationRef, { status: 'accepted', acceptedBy: user.uid, acceptedAt: new Date().toISOString() });
       return { businessId: businessRef.id, businessName: business.data().name || 'Mi negocio' };
     });

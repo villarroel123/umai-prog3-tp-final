@@ -7,14 +7,13 @@ export async function GET(request) {
   try {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
-    if (!['owner', 'admin'].includes(user.role)) return fail('Sin permiso.', 403);
+    if (!['business_owner', 'cashier'].includes(user.role)) return fail('Sin permiso.', 403);
     const url = new URL(request.url);
     const requestedOwner = url.searchParams.get('owner');
-    if (requestedOwner && user.role !== 'admin' && requestedOwner !== user.businessId) return fail('Sin permiso.', 403);
-    const ownerId = requestedOwner || (user.role === 'owner' ? user.businessId : null);
-    const query = ownerId ? db().collection('products').where('ownerId', '==', ownerId) : db().collection('products');
+    if (requestedOwner && requestedOwner !== user.businessId) return fail('Sin permiso.', 403);
+    const query = db().collection('products').where('ownerId', '==', user.businessId);
     const snapshot = await query.get();
-    const includeArchived = url.searchParams.get('includeArchived') === '1' && user.role === 'owner';
+    const includeArchived = url.searchParams.get('includeArchived') === '1' && user.role === 'business_owner';
     return json({ products: snapshot.docs.map(doc => normalizeProduct(doc.id, doc.data())).filter(product => includeArchived || product.isActive).sort((a, b) => a.name.localeCompare(b.name, 'es')) });
   } catch (error) { return safeError(error); }
 }
@@ -23,7 +22,7 @@ export async function POST(request) {
   try {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Solo un propietario puede cargar productos.', 403);
+    if (user.role !== 'business_owner') return fail('Solo un propietario puede cargar productos.', 403);
     const database = db();
     const ref = database.collection('products').doc();
     let product;

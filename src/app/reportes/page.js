@@ -3,6 +3,6 @@ import ReportsDashboard from '@/components/ReportsDashboard';
 
 export const metadata = { title: 'Reportes' };
 export default async function Page() {
-  const user = await requireUser('/reportes', ['owner', 'admin']);
-  return <ReportsDashboard admin={user.role === 'admin'}/>;
+  await requireUser('/reportes', ['business_owner']);
+  return <ReportsDashboard/>;
 }

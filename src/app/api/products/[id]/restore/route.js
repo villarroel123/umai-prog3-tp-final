@@ -7,7 +7,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function POST(_request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const ref = db().collection('products').doc((await params).id);
     const snap = await ref.get();
     if (!snap.exists || snap.data().ownerId !== user.businessId) return fail('Producto no encontrado.', 404);

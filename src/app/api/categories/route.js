@@ -6,7 +6,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET() {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const snapshot = await db().collection('categories').where('ownerId', '==', user.businessId).get();
     return json({ categories: [...DEFAULT_CATEGORIES, ...snapshot.docs.filter(doc => !doc.data().archivedAt).map(doc => ({ id: doc.id, name: doc.data().name, isDefault: false }))] });
   } catch (error) { return safeError(error); }
@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
     const { name: rawName } = await request.json();
     const name = String(rawName || '').trim();
     if (name.length < 2 || name.length > 40) return fail('El nombre debe tener entre 2 y 40 caracteres.');

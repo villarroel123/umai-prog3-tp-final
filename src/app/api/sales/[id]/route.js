@@ -8,7 +8,7 @@ export async function GET(_request, { params }) {
     const snap = await db().collection('sales').doc((await params).id).get();
     if (!snap.exists) return fail('Comprobante no encontrado.', 404);
     const sale = snap.data();
-    if (user.role !== 'admin' && sale.ownerId !== user.businessId) return fail('Sin permiso.', 403);
+    if (sale.ownerId !== user.businessId || (user.role === 'cashier' && sale.cashierId !== user.uid)) return fail('Sin permiso.', 403);
     return json({ sale: { id: snap.id, ...sale } });
   } catch (error) { return safeError(error); }
 }
@@ -16,7 +16,7 @@ export async function GET(_request, { params }) {
 export async function PATCH(request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Solo el propietario puede anular una venta.', 403);
+    if (user.role !== 'business_owner') return fail('Solo el propietario puede anular una venta.', 403);
     const id = (await params).id;
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return fail('Venta inválida.');
     const body = await request.json();

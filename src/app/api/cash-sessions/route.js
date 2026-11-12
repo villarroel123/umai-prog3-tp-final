@@ -6,8 +6,9 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Sin permiso.', 403);
+    if (!['business_owner', 'cashier'].includes(user.role)) return fail('Sin permiso.', 403);
     if (new URL(request.url).searchParams.get('history') === '1') {
+      if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
       const history = await db().collection('cashSessions').where('ownerId', '==', user.businessId).get();
       return json({ sessions: history.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.openedAt.localeCompare(a.openedAt)) });
     }
@@ -26,7 +27,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Solo un propietario puede abrir la caja.', 403);
+    if (user.role !== 'business_owner') return fail('Solo un propietario puede abrir la caja.', 403);
     const body = await request.json();
     if (!body || typeof body !== 'object') return fail('Datos de apertura inválidos.');
     const openingAmount = Number(body.openingAmount);
@@ -40,7 +41,7 @@ export async function POST(request) {
       const business = await transaction.get(businessRef);
       if (business.data()?.activeSessionId) return false;
       transaction.set(sessionRef, session);
-      transaction.set(businessRef, { ownerId: user.businessId, name: businessName, activeSessionId: sessionRef.id, nextReceiptNumber: business.data()?.nextReceiptNumber || 1 }, { merge: true });
+      transaction.set(businessRef, { ownerId: user.businessId, name: businessName, status: business.data()?.status || 'active', activeSessionId: sessionRef.id, nextReceiptNumber: business.data()?.nextReceiptNumber || 1 }, { merge: true });
       return true;
     });
     if (!opened) return fail('Ya hay una caja abierta.', 409);
@@ -51,7 +52,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'owner') return fail('Solo un propietario puede cerrar la caja.', 403);
+    if (user.role !== 'business_owner') return fail('Solo un propietario puede cerrar la caja.', 403);
     const body = await request.json();
     if (!body || typeof body !== 'object') return fail('Datos de cierre inválidos.');
     const closingAmount = Number(body.closingAmount);

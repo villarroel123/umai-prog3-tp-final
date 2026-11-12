@@ -1,5 +1,7 @@
-/** @typedef {'owner'|'admin'} Role */
-/** @typedef {{uid:string,email:string,name:string,role:Role,businessId:string|null,createdAt:string}} UserProfile */
+/** @typedef {'platform_admin'|'business_owner'|'cashier'} Role */
+/** @typedef {{uid:string,email:string,name:string,role:Role|null,businessId:string|null,status:'active'|'suspended',createdAt:string}} UserProfile */
+/** @typedef {{id:string,name:string,ownerId:string,status:'active'|'suspended',createdAt:string,updatedAt:string}} Business */
+/** @typedef {{userId:string,businessId:string,role:'business_owner'|'cashier',status:'active'|'inactive',joinedAt:string}} BusinessMember */
 /** @typedef {{id:string,businessId:string,ownerId:string,name:string,barcode:string,code:string,categoryId:string,category:string,description:string,salePrice:number,price:number,costPrice:number|null,stock:number,minStock:number,unit:'unidad'|'kilogramo'|'litro',imageUrl:string,isActive:boolean,createdAt:string,updatedAt:string}} Product */
 /** @typedef {{id:string,ownerId:string,businessId:string,name:string,isDefault?:boolean,createdAt:string,updatedAt:string}} Category */
 /** @typedef {{id:string,ownerId:string,businessId:string,productId:string,productName:string,previousStock:number,newStock:number,delta:number,reason:string,saleId?:string,actorId:string,createdAt:string}} InventoryMovement */
