@@ -4,7 +4,7 @@ function localDay(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function buildOverview(sales, products, now = new Date()) {
+export function buildOverview(sales, now = new Date()) {
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     date.setDate(date.getDate() - 6 + index);
@@ -30,7 +30,6 @@ export function buildOverview(sales, products, now = new Date()) {
     todayTotal: today.total,
     todayCount: today.count,
     averageTicket: today.count ? roundMoney(today.total / today.count) : 0,
-    lowStock: products.filter(product => product.isActive !== false && product.stock <= (product.minStock ?? 5)),
     days,
     topProducts: [...top.values()].sort((a, b) => b.quantity - a.quantity || b.total - a.total).slice(0, 5),
     latestSales: [...sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),

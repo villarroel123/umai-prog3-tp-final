@@ -2,13 +2,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ChartNoAxesCombined, FileBarChart2, House, Menu, Package, ReceiptText, Settings2, ShoppingBag, UserRound, UsersRound, Wallet, X, Boxes, Truck, UserCog, LifeBuoy } from 'lucide-react';
+import { ArrowUpRight, ChartNoAxesCombined, FileBarChart2, House, Menu, ReceiptText, Settings2, UserRound, UsersRound, Wallet, X, UserCog, LifeBuoy } from 'lucide-react';
 import Brand from './Brand';
 
 const navigation = [
   { href: '/panel', label: 'Resumen', icon: House },
-  { href: '/panel/nueva-venta', label: 'Nueva venta', icon: ShoppingBag },
-  { href: '/panel/productos', label: 'Productos', icon: Package },
   { href: '/panel/ventas', label: 'Ventas', icon: ReceiptText },
   { href: '/panel/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/panel/estadisticas', label: 'Estadísticas', icon: ChartNoAxesCombined },
@@ -16,13 +14,9 @@ const navigation = [
 ];
 const businessNavigation = [
   { href: '/negocio', label: 'Resumen', icon: House },
-  { href: '/negocio/nueva-venta', label: 'Nueva venta', icon: ShoppingBag },
-  { href: '/negocio/productos', label: 'Productos', icon: Package },
-  { href: '/negocio/inventario', label: 'Inventario', icon: Boxes },
-  { href: '/negocio/compras', label: 'Compras', icon: Truck },
+  { href: '/negocio/empleados', label: 'Cajas', icon: Wallet },
   { href: '/negocio/ventas', label: 'Ventas', icon: ReceiptText },
-  { href: '/negocio/cajas', label: 'Cajas y movimientos', icon: Wallet },
-  { href: '/negocio/empleados', label: 'Empleados', icon: UserCog },
+  { href: '/negocio/cajas', label: 'Cierres y movimientos', icon: UserCog },
   { href: '/negocio/clientes', label: 'Clientes', icon: UsersRound },
   { href: '/negocio/estadisticas', label: 'Estadísticas', icon: ChartNoAxesCombined },
   { href: '/negocio/soporte', label: 'Soporte', icon: LifeBuoy },

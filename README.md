@@ -14,7 +14,7 @@ La interfaz usa blanco, negro y violeta como acento, tipografía Inter y el logo
 - **Propietario:** administra un negocio en `/panel`. Una persona puede crear su negocio o aceptar una invitación para compartir otro. Varios propietarios del mismo negocio ven el mismo inventario, caja y ventas. Cada operación registra el UID de quien la realizó.
 - Los clientes de una venta no tienen cuenta ni rol propio. En el cobro puede anotarse un nombre opcional; si se deja vacío, figura «Consumidor final».
 
-El sitio público tiene inicio (`/`), acceso (`/login`) y registro (`/crear-cuenta`). No contiene ventas ni productos ficticios. El panel ofrece Resumen, Nueva venta, Productos, Ventas, Clientes, Estadísticas y Configuración. Las rutas anteriores de caja, inventario, ventas, cierres y reportes siguen disponibles.
+El sitio público tiene inicio (`/`), acceso (`/login`) y registro (`/crear-cuenta`). No contiene ventas ni productos ficticios. El panel ofrece Resumen, Ventas, Clientes, Estadísticas y Configuración. Las rutas de caja, ventas, cierres y reportes siguen disponibles.
 
 ## Datos
 
