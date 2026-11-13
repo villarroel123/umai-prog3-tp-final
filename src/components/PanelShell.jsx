@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ChartNoAxesCombined, FileBarChart2, House, Menu, ReceiptText, Settings2, UserRound, UsersRound, Wallet, X, UserCog, LifeBuoy } from 'lucide-react';
+import { ArrowUpRight, ChartNoAxesCombined, FileBarChart2, House, Menu, ReceiptText, Settings2, UserRound, UsersRound, Wallet, X, UserCog, LifeBuoy, Package } from 'lucide-react';
 import Brand from './Brand';
 
 const navigation = [
@@ -14,6 +14,7 @@ const navigation = [
 ];
 const businessNavigation = [
   { href: '/negocio', label: 'Resumen', icon: House },
+  { href: '/negocio/inventario', label: 'Inventario', icon: Package },
   { href: '/negocio/empleados', label: 'Cajas', icon: Wallet },
   { href: '/negocio/ventas', label: 'Ventas', icon: ReceiptText },
   { href: '/negocio/cajas', label: 'Cierres y movimientos', icon: UserCog },
