@@ -7,6 +7,7 @@ import './pos-compact.css';
 import './sales-step3.css';
 import './business-settings.css';
 import './inventory.css';
+import './articles.css';
 import { StoreProvider } from '@/context/StoreContext';
 import SiteFrame from '@/components/SiteFrame';
 export const metadata = { title: { default: 'caja. — cobros en orden', template: '%s | caja.' }, description: 'Sistema de caja para registrar productos, ventas, pagos y comprobantes en un solo lugar.' };

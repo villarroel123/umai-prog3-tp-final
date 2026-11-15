@@ -1,6 +1,7 @@
 import { db } from '@/lib/firebase-admin';
 import { sessionUser } from '@/lib/session';
-import { codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
+import { cashierProduct, codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
+import { resolveCatalogOption } from '@/lib/catalog-options';
 import { fail, json, safeError } from '@/lib/api';
 
 export async function GET(request) {
@@ -14,7 +15,7 @@ export async function GET(request) {
     const query = db().collection('products').where('ownerId', '==', user.businessId);
     const snapshot = await query.get();
     const includeArchived = url.searchParams.get('includeArchived') === '1' && user.role === 'business_owner';
-    return json({ products: snapshot.docs.map(doc => normalizeProduct(doc.id, doc.data())).filter(product => includeArchived || product.isActive).sort((a, b) => a.name.localeCompare(b.name, 'es')) });
+    return json({ products: snapshot.docs.map(doc => normalizeProduct(doc.id, doc.data())).filter(product => includeArchived || product.isActive).map(product => user.role === 'cashier' ? cashierProduct(product) : product).sort((a, b) => a.name.localeCompare(b.name, 'es')) });
   } catch (error) { return safeError(error); }
 }
 
@@ -27,13 +28,13 @@ export async function POST(request) {
     const ref = database.collection('products').doc();
     let product;
     try { product = parseProduct(await request.json()); } catch (error) { return fail(error.message); }
-    let category;
-    try { category = await resolveCategory(database, user.businessId, product.categoryId); } catch (error) { return fail(error.message); }
+    let category, brand, supplier;
+    try { [category, brand, supplier] = await Promise.all([resolveCategory(database, user.businessId, product.categoryId), resolveCatalogOption(database, 'brands', user.businessId, product.brandId), resolveCatalogOption(database, 'suppliers', user.businessId, product.supplierId)]); } catch (error) { return fail(error.message); }
     if (product.barcode && await codeTaken(database, user.businessId, product.barcode)) return fail('Ya existe un producto con ese código de barras.', 409);
     const code = product.barcode || `INT-${ref.id.slice(0, 12)}`;
     const now = new Date().toISOString();
     const data = {
-      ...product, code, categoryId: category.id, category: category.name,
+      ...product, code, categoryId: category.id, category: category.name, brand: brand.name, supplier: supplier.name,
       imageUrl: product.imageUrl,
       price: product.salePrice, ownerId: user.businessId, businessId: user.businessId,
       isActive: true, isSample: false, createdAt: now, updatedAt: now,

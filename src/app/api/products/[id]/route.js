@@ -1,6 +1,7 @@
 import { db } from '@/lib/firebase-admin';
 import { sessionUser } from '@/lib/session';
-import { codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
+import { cashierProduct, codeTaken, normalizeProduct, parseProduct, resolveCategory } from '@/lib/product';
+import { resolveCatalogOption } from '@/lib/catalog-options';
 import { fail, json, safeError } from '@/lib/api';
 
 async function findAuthorized(id, user, mutate = false) {
@@ -16,7 +17,9 @@ export async function GET(_request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
     const result = await findAuthorized((await params).id, user);
-    return result.error || json({ product: normalizeProduct(result.snap.id, result.snap.data()) });
+    if (result.error) return result.error;
+    const product = normalizeProduct(result.snap.id, result.snap.data());
+    return json({ product: user.role === 'cashier' ? cashierProduct(product) : product });
   } catch (error) { return safeError(error); }
 }
 
@@ -28,12 +31,12 @@ export async function PATCH(request, { params }) {
     let product;
     try { product = parseProduct({ ...previous, ...await request.json() }); } catch (error) { return fail(error.message); }
     if (product.stock !== previous.stock) return fail('Usá Ajustar stock para registrar el motivo del cambio.');
-    let category;
-    try { category = await resolveCategory(db(), user.businessId, product.categoryId, previous.category); } catch (error) { return fail(error.message); }
+    let category, brand, supplier;
+    try { [category, brand, supplier] = await Promise.all([resolveCategory(db(), user.businessId, product.categoryId, previous.category), resolveCatalogOption(db(), 'brands', user.businessId, product.brandId), resolveCatalogOption(db(), 'suppliers', user.businessId, product.supplierId)]); } catch (error) { return fail(error.message); }
     if (product.barcode && await codeTaken(db(), user.businessId, product.barcode, result.snap.id)) return fail('Ya existe un producto con ese código de barras.', 409);
     const changes = {
       ...product, code: product.barcode || `INT-${result.snap.id.slice(0, 12)}`,
-      categoryId: category.id, category: category.name,
+      categoryId: category.id, category: category.name, brand: brand.name, supplier: supplier.name,
       price: product.salePrice, updatedAt: new Date().toISOString(),
     };
     delete changes.stock;
@@ -42,13 +45,15 @@ export async function PATCH(request, { params }) {
   } catch (error) { return safeError(error); }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
     const result = await findAuthorized((await params).id, user, true); if (result.error) return result.error;
     if (result.snap.data().archivedAt || result.snap.data().isActive === false) return json({ ok: true });
+    const reason = String((await request.json().catch(() => ({}))).reason || '').trim();
+    if (reason.length < 3 || reason.length > 200) return fail('Indicá un motivo de baja de 3 a 200 caracteres.');
     const now = new Date().toISOString();
-    await result.ref.update({ isActive: false, archivedAt: now, updatedAt: now });
+    await result.ref.update({ isActive: false, archivedAt: now, archivedBy: user.uid, archivedReason: reason, updatedAt: now });
     return json({ ok: true });
   } catch (error) { return safeError(error); }
 }

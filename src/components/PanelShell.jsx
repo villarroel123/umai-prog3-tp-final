@@ -15,6 +15,7 @@ const navigation = [
 const businessNavigation = [
   { href: '/negocio', label: 'Resumen', icon: House },
   { href: '/negocio/inventario', label: 'Inventario', icon: Package },
+  { href: '/negocio/productos', label: 'Artículos', icon: Package },
   { href: '/negocio/empleados', label: 'Cajas', icon: Wallet },
   { href: '/negocio/ventas', label: 'Ventas', icon: ReceiptText },
   { href: '/negocio/cajas', label: 'Cierres y movimientos', icon: UserCog },

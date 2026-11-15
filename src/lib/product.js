@@ -15,10 +15,17 @@ export function normalizeProduct(id, data) {
     salePrice: data.salePrice ?? data.price ?? 0,
     price: data.price ?? data.salePrice ?? 0,
     costPrice: data.costPrice ?? null,
+    brandId: data.brandId || '', brand: data.brand || '',
+    supplierId: data.supplierId || '', supplier: data.supplier || '',
     minStock: data.minStock ?? 5,
     imageUrl: data.imageUrl || '',
     isActive: data.isActive !== false && !data.archivedAt,
   };
+}
+
+export function cashierProduct(product) {
+  const { id, businessId, name, barcode, code, category, categoryId, brand, brandId, description, salePrice, price, stock, minStock, unit, imageUrl, isActive } = product;
+  return { id, businessId, name, barcode, code, category, categoryId, brand, brandId, description, salePrice, price, stock, minStock, unit, imageUrl, isActive };
 }
 
 export function parseProduct(body) {
@@ -26,6 +33,8 @@ export function parseProduct(body) {
   const barcode = String(body.barcode ?? body.code ?? '').trim();
   const description = String(body.description || '').trim();
   const categoryId = String(body.categoryId || '').trim();
+  const brandId = String(body.brandId || '').trim();
+  const supplierId = String(body.supplierId || '').trim();
   const unit = String(body.unit || 'unidad').trim();
   const salePrice = Number(body.salePrice ?? body.price);
   const costPrice = body.costPrice === '' || body.costPrice == null ? null : Number(body.costPrice);
@@ -35,13 +44,14 @@ export function parseProduct(body) {
   if (name.length < 2 || name.length > 80) throw new Error('El nombre debe tener entre 2 y 80 caracteres.');
   if (barcode && !/^[A-Za-z0-9-]{3,32}$/.test(barcode)) throw new Error('El código de barras debe tener entre 3 y 32 letras, números o guiones.');
   if (description.length > 500) throw new Error('La descripción no puede superar 500 caracteres.');
+  if (brandId.length > 100 || supplierId.length > 100) throw new Error('Marca o proveedor inválido.');
   if (!['unidad', 'kilogramo', 'litro'].includes(unit)) throw new Error('Seleccioná una unidad válida.');
   if (!Number.isFinite(salePrice) || salePrice <= 0 || salePrice > 100000000) throw new Error('Ingresá un precio de venta válido.');
   if (costPrice !== null && (!Number.isFinite(costPrice) || costPrice < 0 || costPrice > 100000000)) throw new Error('Ingresá un precio de compra válido.');
   if (!Number.isInteger(stock) || stock < 0 || stock > 1000000) throw new Error('Ingresá un stock entero válido.');
   if (!Number.isInteger(minStock) || minStock < 0 || minStock > 1000000) throw new Error('Ingresá un stock mínimo entero válido.');
   if (imageUrl && !/^\/assets\/products\/[a-z0-9-]+\.webp$/.test(imageUrl)) throw new Error('Seleccioná una imagen local válida.');
-  return { name, barcode, categoryId, description, salePrice: roundMoney(salePrice), costPrice: costPrice === null ? null : roundMoney(costPrice), stock, minStock, unit, imageUrl };
+  return { name, barcode, categoryId, brandId, supplierId, description, salePrice: roundMoney(salePrice), costPrice: costPrice === null ? null : roundMoney(costPrice), stock, minStock, unit, imageUrl };
 }
 
 export async function resolveCategory(database, ownerId, categoryId, fallbackName) {
