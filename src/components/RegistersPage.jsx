@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pencil, Plus, Trash2, UsersRound, Wallet, X } from 'lucide-react';
 import { money } from '@/lib/models';
+import CashiersManager from './CashiersManager';
 
 function RegisterCard({ register, editing, editName, setEditName, onEdit, onDelete, onCancel }) {
   const latestSession = register.latestSession;
@@ -26,7 +27,7 @@ function RegisterCard({ register, editing, editName, setEditName, onEdit, onDele
             <UsersRound size={16} />
             <span>
               <strong>{latestSession.cashier || 'Cajero sin identificar'}</strong>
-              <small>Último cajero</small>
+              <small>Abierta por</small>
             </span>
           </div>
           <span>
@@ -84,6 +85,7 @@ function RegisterCard({ register, editing, editName, setEditName, onEdit, onDele
 }
 
 export default function RegistersPage() {
+  const [tab, setTab] = useState('registers');
   const [registers, setRegisters] = useState([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -186,34 +188,30 @@ export default function RegistersPage() {
   }
 
   return (
-    <div className="inner-page">
+    <div className="inner-page cashiers-page">
       <div className="page-top">
         <div>
           <span className="eyebrow">MI NEGOCIO / OPERACIÓN</span>
-          <h1>
-            Cajas<span className="accent">.</span>
-          </h1>
-          <p>
-            Administrá las cajas del negocio y consultá quién las usa y su
-            actividad reciente.
-          </p>
+          <h1>Cajas<span className="accent">.</span></h1>
         </div>
         <div className="page-emblem">
           <Wallet size={26} />
         </div>
       </div>
 
+      <div className="cashier-tabs" role="tablist" aria-label="Gestión de cajas y cajeros"><button type="button" role="tab" aria-selected={tab === 'registers'} className={tab === 'registers' ? 'active' : ''} onClick={() => setTab('registers')}>Cajas</button><button type="button" role="tab" aria-selected={tab === 'cashiers'} className={tab === 'cashiers' ? 'active' : ''} onClick={() => setTab('cashiers')}>Cajeros</button></div>
+      {tab === 'cashiers' ? <CashiersManager registers={registers}/> : <>
       <section className="settings-card">
-        <h2>Agregar cajero</h2>
+        <h2>Agregar caja</h2>
         <form onSubmit={create}>
           <label>
-            Nombre del cajero
+            Nombre de la caja
             <input
               value={name}
               onChange={event => setName(event.target.value)}
               minLength={2}
               maxLength={30}
-              placeholder="Camila"
+            placeholder="Caja 1"
               required
             />
           </label>
@@ -230,7 +228,7 @@ export default function RegistersPage() {
       <div className="section-bar">
         <div>
           <span className="eyebrow">CONFIGURACIÓN Y ACTIVIDAD</span>
-          <h2>Cuentas de cajeros registrados</h2>
+          <h2>Cajas registradas</h2>
         </div>
         <span className="role-tag">
           {registers.length} {registers.length === 1 ? 'caja' : 'cajas'}
@@ -268,6 +266,7 @@ export default function RegistersPage() {
           <p>Agregá una caja con el formulario para empezar.</p>
         </div>
       )}
+      </>}
     </div>
   );
 }

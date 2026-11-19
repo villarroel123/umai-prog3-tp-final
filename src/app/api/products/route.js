@@ -9,6 +9,7 @@ export async function GET(request) {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
     if (!['business_owner', 'cashier'].includes(user.role)) return fail('Sin permiso.', 403);
+    if (user.role === 'cashier' && user.permissions?.viewStock !== true && user.permissions?.sell !== true) return fail('Sin permiso.', 403);
     const url = new URL(request.url);
     const requestedOwner = url.searchParams.get('owner');
     if (requestedOwner && requestedOwner !== user.businessId) return fail('Sin permiso.', 403);

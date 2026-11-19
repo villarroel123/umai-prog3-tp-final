@@ -20,3 +20,13 @@ test('los filtros incluyen pagos divididos y el CSV neutraliza fórmulas', () =>
   assert.equal(filterSales(sales, { from: '2026-11-08', to: '2026-11-08', product: 'pan', payment: 'card' }).length, 1);
   assert.match(salesCsv(sales), /"'=DATO"/);
 });
+
+test('una devolución parcial descuenta unidades y dinero sin borrar la operación', () => {
+  const partial = { ...sales[0], status: 'partially_returned', returnedQuantities: { p: 1 }, refundedTotal: 50, refundedByMethod: { cash: 50 } };
+  const summary = summarizeSales([partial]);
+  assert.equal(summary.count, 1);
+  assert.equal(summary.total, 50);
+  assert.equal(summary.products[0].quantity, 1);
+  assert.deepEqual(summary.paymentTotals, { cash: 10, card: 40, transfer: 0 });
+  assert.match(salesCsv([partial]), /Devolución parcial/);
+});

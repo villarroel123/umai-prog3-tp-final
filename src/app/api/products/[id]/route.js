@@ -10,6 +10,7 @@ async function findAuthorized(id, user, mutate = false) {
   const snap = await ref.get();
   if (!snap.exists) return { error: fail('Producto no encontrado.', 404) };
   if (!['business_owner', 'cashier'].includes(user.role) || snap.data().ownerId !== user.businessId) return { error: fail('Sin permiso.', 403) };
+  if (user.role === 'cashier' && user.permissions?.viewStock !== true && user.permissions?.sell !== true) return { error: fail('Sin permiso.', 403) };
   return { ref, snap };
 }
 

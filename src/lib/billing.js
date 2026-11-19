@@ -29,6 +29,7 @@ export function priceLine(product, quantity, adjustmentInput) {
     category: product.category || 'Otros',
     unit: product.unit,
     unitPrice: product.price,
+    catalogUnitPrice: product.catalogUnitPrice ?? product.price,
     quantity,
     baseTotal,
     adjustment,

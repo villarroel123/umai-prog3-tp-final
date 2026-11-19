@@ -2,125 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
+import { nextScannedQuantity, parseQuantityCommand } from '@/lib/scan-quantity';
 
-const DEMO_CSS = `
-.demo-screen{position:fixed;inset:0;z-index:40;width:100%;height:100vh;height:100dvh;padding:16px;overflow:hidden;background:#efeaf7;color:#1c1b22;font-family:Inter,'Segoe UI',system-ui,Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
-.demo-screen *{box-sizing:border-box}
-.demo-frame{width:100%;height:100%;min-height:0;display:grid;grid-template-columns:minmax(0,2.4fr) minmax(300px,1fr);grid-template-rows:auto minmax(0,1fr);gap:14px}
-
-/* Cabecera */
-.demo-left-head{grid-column:1;grid-row:1;min-width:0;display:grid;gap:12px}
-.demo-bar{height:56px;display:flex;align-items:center;gap:12px;padding:0 18px;background:#fff;border:1px solid #e2dcee;border-radius:12px;box-shadow:0 1px 2px rgba(60,30,110,.06)}
-.demo-business{font-size:clamp(16px,1.8vw,20px);font-weight:800;letter-spacing:.01em;color:#7a3fd0;white-space:nowrap}
-.demo-spacer{flex:1}
-.demo-chip{display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:999px;background:#f3ecfd;color:#4b2a85;font-size:12.5px;white-space:nowrap}
-.demo-chip strong{font-weight:700}
-.demo-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-button.demo-shortcut{min-width:0;display:flex;align-items:center;gap:12px;padding:8px 14px;background:#fff;border:1px solid #e2dcee;border-radius:10px;color:#1c1b22;font:inherit;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(60,30,110,.06);transition:border-color .15s,background .15s}
-button.demo-shortcut:not(:disabled):hover{border-color:#a66de8;background:#faf6fe}
-button.demo-shortcut:disabled{opacity:.45;cursor:not-allowed}
-.demo-shortcut-key{flex:none;min-width:46px;height:36px;display:grid;place-items:center;padding:0 8px;border:1px solid #d8c6f3;border-bottom-width:3px;border-radius:8px;background:#f3ecfd;color:#5b2da3;font-size:14px;font-weight:700}
-button.demo-shortcut:not(:disabled):hover .demo-shortcut-key{background:#a66de8;border-color:#8f4fd6;color:#fff}
-.demo-shortcut-label{font-size:12.5px;font-weight:600;line-height:1.25}
-
-/* Tabla */
-.demo-grid{grid-column:1;grid-row:2;min-width:0;min-height:0;display:grid;grid-template-rows:54px minmax(0,1fr);background:#fff;border:1px solid #e2dcee;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(60,30,110,.06)}
-.demo-search{margin:0;padding:0 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #eee9f6;color:#8a63c4}
-.demo-search:focus-within{background:#faf7fe}
-.demo-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#1c1b22;font:inherit;font-size:14px}
-.demo-search input::placeholder{color:#9a94ac}
-.demo-table-wrap{min-height:0;overflow:auto}
-.demo-table{width:100%;border-collapse:collapse;table-layout:fixed}
-.demo-table thead{position:sticky;top:0;z-index:1}
-.demo-table th{height:38px;padding:0 16px;background:#f6f1fd;border-bottom:1px solid #e7dcf8;color:#5b2da3;font-size:11.5px;font-weight:700;text-align:right}
-.demo-table th:nth-child(1),.demo-table th:nth-child(2){text-align:left}
-.demo-table th:nth-child(3){text-align:center}
-.demo-table th:nth-child(1){width:21%}.demo-table th:nth-child(2){width:27%}.demo-table th:nth-child(3){width:12%}.demo-table th:nth-child(4){width:20%}.demo-table th:nth-child(5){width:20%}
-.demo-table td{height:54px;padding:0 16px;border-bottom:1px solid #f0ecf6;background:#fff;font-size:13px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.demo-table td:nth-child(1){text-align:left;color:#77718a;font-size:12px}
-.demo-table td:nth-child(2){text-align:left;font-weight:600}
-.demo-table td:nth-child(3){text-align:center}
-.demo-table td:nth-child(5){font-weight:700}
-.demo-table tbody tr{cursor:pointer;transition:background .12s}
-.demo-table tbody tr:hover td{background:#faf6fe}
-.demo-table tbody tr.is-selected td{background:#f3eafd}
-.demo-table tbody tr.is-selected td:first-child{box-shadow:inset 4px 0 0 #a66de8}
-.demo-qty{display:inline-grid;place-items:center;min-width:30px;height:24px;padding:0 9px;border-radius:999px;background:#f1eef6;color:#9a94ac;font-size:12px;font-weight:700}
-.in-cart .demo-qty{background:#a66de8;color:#fff}
-
-/* Resumen y pago */
-.demo-summary{grid-column:2;grid-row:1/3;min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:14px}
-.demo-total{padding:22px 24px;border-radius:12px;background:linear-gradient(145deg,#a66de8,#7a3fd0);color:#fff;box-shadow:0 10px 24px rgba(122,63,208,.28)}
-.demo-total-label{display:block;font-size:13px;font-weight:600;opacity:.88}
-.demo-total-amount{display:block;margin-top:4px;font-size:clamp(32px,4vw,50px);font-weight:800;line-height:1.1;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis}
-.demo-total-meta{display:block;margin-top:6px;font-size:12px;opacity:.85}
-.demo-payment{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:20px;background:#fff;border:1px solid #e2dcee;border-radius:12px;box-shadow:0 1px 2px rgba(60,30,110,.06)}
-.demo-payment h2{margin:0;font-size:17px;font-weight:700}
-.demo-lines{display:grid;border:1px solid #eee9f6;border-radius:10px}
-.demo-lines div{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #f0ecf6;font-size:13px;color:#5d5870}
-.demo-lines div:last-child{border:0}
-.demo-lines strong{color:#1c1b22}
-.demo-label{display:grid;gap:8px;font-size:12.5px;font-weight:600;color:#5d5870}
-.demo-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.demo-method{height:40px;border:1px solid #d9d2e8;border-radius:8px;background:#fff;color:#1c1b22;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s}
-.demo-method:hover{border-color:#a66de8}
-.demo-method[aria-pressed=true]{border-color:#a66de8;background:#f3ecfd;color:#4b2a85}
-.demo-input{width:100%;height:44px;padding:0 14px;border:1px solid #d9d2e8;border-radius:8px;background:#fff;color:#1c1b22;font:inherit;font-size:18px;font-weight:600;text-align:right}
-.demo-input::placeholder{color:#b3adc4}
-.demo-change{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-radius:10px;background:#f6f1fd;font-size:13px;font-weight:600;color:#4b2a85}
-.demo-change strong{font-size:22px;color:#1c1b22}
-.demo-change.is-short{background:#fdecec;color:#9b1c1c}
-.demo-change.is-short strong{color:#9b1c1c}
-.demo-checkout{width:100%;min-height:54px;margin-top:auto;border:0;border-radius:10px;background:#17171b;color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s}
-.demo-checkout:hover:not(:disabled){background:#2d2b38}
-.demo-checkout:disabled{opacity:.4;cursor:not-allowed}
-.demo-notice{margin:0;font-size:12.5px;line-height:1.4;font-weight:600;color:#1f6b3a}
-.demo-notice.is-error{color:#9b1c1c}
-.demo-success{margin:0;padding:12px 14px;border-radius:10px;background:#f3ecfd;border:1px solid #e0d0f7;font-size:12.5px;line-height:1.45;color:#4b2a85}
-
-/* Diálogo de descuentos */
-.demo-modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(23,23,27,.55)}
-.demo-dialog{width:min(380px,92vw);padding:22px;display:grid;gap:16px;border-radius:14px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.35)}
-.demo-dialog h3{margin:0;font-size:18px;font-weight:700}
-.demo-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.demo-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.demo-dialog-actions .demo-checkout{margin:0;min-height:46px}
-.demo-checkout.is-light{background:#f1eef6;color:#1c1b22}
-.demo-checkout.is-light:hover:not(:disabled){background:#e5dff0}
-.demo-screen button:focus-visible,.demo-screen input:focus-visible,.demo-modal button:focus-visible,.demo-modal input:focus-visible{outline:3px solid #5b2da3;outline-offset:2px}
-.demo-search input:focus-visible{outline:0}
-.demo-start{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;background:rgba(23,23,27,.38);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.demo-start-card{width:min(440px,100%);padding:30px;display:grid;gap:17px;border:1px solid #e2dcee;border-radius:16px;background:rgba(255,255,255,.97);box-shadow:0 24px 70px rgba(0,0,0,.25);animation:demo-card-in .28s ease-out both}
-@keyframes demo-card-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-.demo-screen.demo-screen-enter{animation:demo-screen-in .38s ease-out both}
-@keyframes demo-screen-in{from{opacity:.72;transform:scale(1.012);filter:blur(3px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
-@media(prefers-reduced-motion:reduce){.demo-start-card,.demo-screen.demo-screen-enter{animation:none}}
-.demo-start-card h1{margin:0;font-size:25px;letter-spacing:-.03em}
-.demo-start-card p{margin:0;color:#716b7e;font-size:14px;line-height:1.5}
-.demo-start-card label{display:grid;gap:7px;color:#5d5870;font-size:13px;font-weight:600}
-.demo-start-card input{width:100%;height:46px;padding:0 13px;border:1px solid #d9d2e8;border-radius:8px;background:#fff;color:#1c1b22;font:inherit;font-size:15px}
-.demo-start-card button{width:100%;min-height:50px;margin-top:3px;border:0;border-radius:9px;background:#7a3fd0;color:#fff;font:inherit;font-weight:700;cursor:pointer}
-.demo-start-card button:hover{background:#9256d2}
-
-@media(max-width:900px){
-.demo-screen{padding:10px;overflow:auto}
-.demo-frame{height:auto;min-height:100%;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 440px auto;gap:10px}
-.demo-grid{grid-column:1;grid-row:2}
-.demo-summary{grid-column:1;grid-row:3}
-.demo-chip.demo-date{display:none}
-button.demo-shortcut{padding:6px 8px;gap:8px}
-.demo-shortcut-key{min-width:36px;height:32px;font-size:13px}
-.demo-shortcut-label{font-size:11px}
-}
-@media(max-width:560px){
-.demo-bar{padding:0 12px;gap:8px}
-.demo-chip{padding:0 10px;font-size:11px}
-.demo-shortcut-label br{display:none}
-.demo-table th,.demo-table td{padding:0 10px}
-.demo-table th:nth-child(1),.demo-table td:nth-child(1){display:none}
-.demo-table th:nth-child(2){width:38%}.demo-table th:nth-child(3){width:14%}.demo-table th:nth-child(4){width:24%}.demo-table th:nth-child(5){width:24%}
-}
-`;
 
 const PRODUCTS = [
   { id: 1, barcode: '7791001000012', name: 'Café en grano', category: 'Almacén', price: 8500, stock: 12 },
@@ -138,6 +21,7 @@ export default function DemoPage() {
   const [cashierName, setCashierName] = useState('');
   const [started, setStarted] = useState(false);
   const [search, setSearch] = useState('');
+  const [pendingQuantity, setPendingQuantity] = useState(null);
   const [cart, setCart] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
@@ -149,6 +33,14 @@ export default function DemoPage() {
   const [finished, setFinished] = useState(null);
   const [now, setNow] = useState(null);
   const lastAdjustEnter = useRef(0);
+  const searchRef = useRef(null);
+
+  useEffect(() => { if (started) searchRef.current?.focus(); }, [started]);
+  useEffect(() => {
+    if (notice?.type !== 'ok') return;
+    const timer = setTimeout(() => setNotice(null), 1800);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     const updateClock = () => {
@@ -190,23 +82,36 @@ export default function DemoPage() {
   const change = paymentMethod === 'Efectivo' && receivedNumber > total ? receivedNumber - total : 0;
   const inCart = Boolean(selectedId && cart[selectedId]);
 
-  function add(product, quantity = 1) {
-    setFinished(null);
+  function add(product, quantity = pendingQuantity || 1) {
     const current = cart[product.id] || 0;
-    const next = Math.min(current + quantity, product.stock);
-    setNotice(
-      current + quantity > product.stock
-        ? { type: 'error', text: `Stock disponible de ${product.name}: ${product.stock}` }
-        : null
-    );
+    const next = nextScannedQuantity(current, quantity, product.stock);
+    if (next === null) {
+      setNotice({ type: 'error', text: `Stock disponible de ${product.name}: ${product.stock}.${pendingQuantity && pendingQuantity === quantity ? ` La cantidad ${quantity} sigue pendiente.` : ''}` });
+      setSearch('');
+      searchRef.current?.focus();
+      return;
+    }
+    setFinished(null);
     setCart(items => ({ ...items, [product.id]: next }));
     setSelectedId(product.id);
+    setPendingQuantity(null);
+    setSearch('');
+    setNotice({ type: 'ok', text: `${quantity} × ${product.name} agregado${quantity === 1 ? '' : 's'} al ticket.` });
+    searchRef.current?.focus();
   }
 
   // Escribir "3*código" y Enter agrega 3 unidades; Enter solo agrega 1
   function submitSearch(event) {
     event.preventDefault();
+    const command = parseQuantityCommand(search);
+    if (command) {
+      if (command.error) setNotice({ type: 'error', text: command.error });
+      else { setPendingQuantity(command.quantity); setSearch(''); setNotice(null); }
+      searchRef.current?.focus();
+      return;
+    }
     if (!search.trim()) {
+      if (pendingQuantity) return;
       const product = PRODUCTS.find(item => item.id === selectedId) || products[0];
       if (product) add(product);
       return;
@@ -221,10 +126,11 @@ export default function DemoPage() {
       PRODUCTS.find(item => `${item.barcode} ${item.name}`.toLowerCase().includes(term));
     if (!product) {
       setNotice({ type: 'error', text: `No se encontró "${match[2].trim()}".` });
+      setSearch('');
+      searchRef.current?.focus();
       return;
     }
-    add(product, quantity);
-    setSearch('');
+    add(product, match[1] ? quantity : pendingQuantity || 1);
   }
 
   function removeSelected() {
@@ -335,13 +241,14 @@ export default function DemoPage() {
   useEffect(() => {
     function onKeyDown(event) {
       const key = event.key.toUpperCase();
+      if (!started) return;
       const target = event.target;
       const catalogHasFocus = Boolean(
         target?.closest?.('.demo-search, .demo-table-wrap') || target === document.body
       );
 
       if (adjustOpen) {
-        if (key === 'ESCAPE') setAdjustOpen(false);
+        if (key === 'ESCAPE') { event.preventDefault(); setAdjustOpen(false); requestAnimationFrame(() => searchRef.current?.focus()); }
         return;
       }
       if (key === 'F1') {
@@ -357,7 +264,12 @@ export default function DemoPage() {
         event.stopPropagation();
         closeReceipt();
       } else if (key === 'ESCAPE') {
+        if (!search && !pendingQuantity) return;
+        event.preventDefault();
         setSearch('');
+        setPendingQuantity(null);
+        setNotice(null);
+        searchRef.current?.focus();
       } else if (catalogHasFocus && (key === 'ARROWDOWN' || key === 'ARROWUP')) {
         if (!products.length) return;
         event.preventDefault();
@@ -377,11 +289,10 @@ export default function DemoPage() {
     }
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [adjustOpen, products, selectedId, total, cashShort]);
+  }, [started, adjustOpen, products, selectedId, total, cashShort, search, pendingQuantity]);
 
   return (
     <>
-      <style>{DEMO_CSS}</style>
       {!started && <div className="demo-start">
         <form className="demo-start-card" onSubmit={event => { event.preventDefault(); setBusinessName(businessName.trim()); setCashierName(cashierName.trim()); setStarted(true); }}>
           <span className="demo-shortcut-key">DEMO</span>
@@ -422,13 +333,16 @@ export default function DemoPage() {
             <form className="demo-search" onSubmit={submitSearch}>
               <Search size={18} />
               <input
+                ref={searchRef}
                 value={search}
                 onChange={event => setSearch(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Enter' && event.repeat) event.preventDefault(); }}
                 placeholder="Buscar por código o descripción (3*código para cantidad)"
                 aria-label="Buscar por código o descripción"
                 autoComplete="off"
                 autoFocus
               />
+              {pendingQuantity && <span className="demo-pending" role="status">Cantidad: {pendingQuantity}</span>}
             </form>
             <div className="demo-table-wrap" tabIndex={0} aria-label="Lista de productos">
               <table className="demo-table">

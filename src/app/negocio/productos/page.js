@@ -1,3 +1,6 @@
-import ArticlesPage from '@/components/ArticlesPage';
-export const metadata = { title: 'Artículos' };
-export default async function Page({ searchParams }) { return <ArticlesPage openNew={(await searchParams)?.nuevo === '1'}/>; }
+import { redirect } from 'next/navigation';
+
+export default async function Page({ searchParams }) {
+  const params = await searchParams;
+  redirect(`/negocio/inventario${params?.nuevo === '1' ? '?nuevo=1' : ''}`);
+}

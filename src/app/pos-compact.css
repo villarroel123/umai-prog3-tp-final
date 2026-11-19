@@ -16,6 +16,9 @@
 .product-row:disabled .add-product{visibility:hidden}
 .product-row:disabled .product-identity strong{color:#8d8d98}
 .products-foot{padding-block:14px}
+.scan-pending,.scan-confirmation{margin:-7px 25px 12px;padding:8px 11px;border-radius:7px;font-size:11px;font-weight:700}
+.scan-pending{border:1px solid #dec9f1;background:#f8f1ff;color:#7141a5}
+.scan-confirmation{border:1px solid #d4e6db;background:#f3faf5;color:#31694b}
 .ticket-head{padding:17px 19px 10px}
 .ticket-customer{padding:0 19px 10px}
 .ticket-meta{padding:8px 19px}
@@ -43,4 +46,4 @@
 .payment-options button.selected{border-color:#b785e6;background:#f5ecfd;color:#8049bb}
 .empty-list .text-link{margin-top:6px}
 @media(max-width:900px){.products-panel,.ticket-panel{position:static;height:auto;min-height:0}.product-list{max-height:390px;overflow-y:auto}.ticket-lines{min-height:110px;max-height:260px}.payment-details{overflow:visible}.payment-block{max-height:none}.payment-footer{position:static}.product-list-head{position:sticky;top:0}}
-@media(max-width:580px){.product-row{min-height:57px}.ticket-line{padding-inline:14px}.ticket-total{padding-inline:14px}.payment-block{padding-inline:14px}.inventory-card>.product-initial{display:grid}}
+@media(max-width:580px){.scan-pending,.scan-confirmation{margin-inline:16px}.product-row{min-height:57px}.ticket-line{padding-inline:14px}.ticket-total{padding-inline:14px}.payment-block{padding-inline:14px}.inventory-card>.product-initial{display:grid}}

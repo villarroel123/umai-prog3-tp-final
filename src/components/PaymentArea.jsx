@@ -2,12 +2,13 @@
 import { ArrowRight, Banknote, CreditCard, Plus, Trash2, Wallet } from 'lucide-react';
 import { money, PAYMENT_METHODS } from '@/lib/models';
 
-export default function PaymentArea({ splitPayment, setSplitPayment, paymentMethod, setPaymentMethod, paymentRows, setPaymentRows, paymentReference, setPaymentReference, transferConfirmed, setTransferConfirmed, amountReceived, setAmountReceived, customerName, setCustomerName, total, paymentsTotal, cashPortion, change, paymentReady, checkout, busy, hasItems }) {
+export default function PaymentArea({ splitPayment, setSplitPayment, paymentMethod, setPaymentMethod, paymentRows, setPaymentRows, paymentReference, setPaymentReference, transferConfirmed, setTransferConfirmed, amountReceived, setAmountReceived, customerName, setCustomerName, total, paymentsTotal, cashPortion, change, paymentReady, checkout, busy, hasItems, cashierSummary = null }) {
   function updateRow(index, patch) { if (patch.method !== undefined) setTransferConfirmed(false); setPaymentRows(rows => rows.map((row, i) => i === index ? { ...row, ...patch } : row)); }
-  return <div className="payment-block">
+  return <div className={`payment-block${cashierSummary ? ' cashier-payment-block' : ''}`}>
     <div className="payment-details">
+    {cashierSummary && <div className="cashier-payment-summary"><h2>Información de pago</h2><div><span>Subtotal</span><strong>{money(cashierSummary.subtotal)}</strong></div><div><span>{cashierSummary.adjustment?.type === 'discount' ? 'Descuento' : cashierSummary.adjustment?.type === 'surcharge' ? 'Recargo' : 'Descuento o recargo'}</span><strong>{cashierSummary.saleAdjustmentAmount ? money(cashierSummary.saleAdjustmentAmount) : '—'}</strong></div><div className="cashier-payment-summary-total"><span>Total</span><strong>{money(total)}</strong></div></div>}
     <span className="eyebrow">03 / COBRO</span>
-    <div className="payment-heading"><h3>Medios de cobro</h3><button type="button" onClick={() => { setSplitPayment(value => !value); setTransferConfirmed(false); }}>{splitPayment ? 'Cobro simple' : 'Dividir pago'}</button></div>
+    <div className="payment-heading"><h3>{cashierSummary ? 'Medio de pago' : 'Medios de cobro'}</h3><button type="button" onClick={() => { setSplitPayment(value => !value); setTransferConfirmed(false); }}>{splitPayment ? 'Cobro simple' : 'Dividir pago'}</button></div>
     {splitPayment ? <div className="split-payments">
       {paymentRows.map((row, index) => <div className="split-row" key={index}>
         <label>Medio<select value={row.method} onChange={e => updateRow(index, { method: e.target.value })}>{Object.entries(PAYMENT_METHODS).filter(([method]) => method !== 'mixed').map(([method, label]) => <option key={method} value={method}>{label}</option>)}</select></label>

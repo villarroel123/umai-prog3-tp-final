@@ -25,7 +25,9 @@ export function parseCheckout(body) {
     const quantity = Number(item.quantity);
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000) throw new Error('Revisá las cantidades.');
     if (requested.has(id)) throw new Error('No repitas un producto en el ticket.');
-    requested.set(id, { quantity, adjustment: normalizeAdjustment(item.adjustment) });
+    const unitPriceOverride = item.unitPriceOverride == null ? null : amount(item.unitPriceOverride, 'Precio puntual');
+    if (unitPriceOverride === 0) throw new Error('El precio puntual debe ser mayor a cero.');
+    requested.set(id, { quantity, adjustment: normalizeAdjustment(item.adjustment), unitPriceOverride });
   }
   if (!Array.isArray(body.payments) || body.payments.length < 1 || body.payments.length > 5) throw new Error('Agregá entre 1 y 5 medios de pago.');
   const payments = body.payments.map(payment => {

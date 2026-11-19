@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ArrowUpRight, CalendarDays, PackagePlus, ReceiptText, TrendingUp } from 'lucide-react';
 import { money, PAYMENT_METHODS, receiptCode } from '@/lib/models';
 import { buildOverview } from '@/lib/overview';
+import { netSaleTotal, saleStatusLabel } from '@/lib/sale-history';
 import SalesChart from './SalesChart';
 
 function RecentSaleRow({ sale }) {
-  const content = <><span className="overview-receipt-icon"><ReceiptText size={18}/></span><span className="overview-recent-info"><strong>{receiptCode(sale.receiptNumber)} · {sale.buyerName || 'Consumidor final'}</strong><small>{new Date(sale.createdAt).toLocaleString('es-AR')} · {PAYMENT_METHODS[sale.paymentMethod] || 'Pago'}</small></span><span className="overview-recent-amount"><strong>{money(sale.total)}</strong>{sale.status === 'voided' && <small>Anulada</small>}</span><ArrowUpRight size={16}/></>;
+  const content = <><span className="overview-receipt-icon"><ReceiptText size={18}/></span><span className="overview-recent-info"><strong>{receiptCode(sale.receiptNumber)} · {sale.buyerName || 'Consumidor final'}</strong><small>{new Date(sale.createdAt).toLocaleString('es-AR')} · {PAYMENT_METHODS[sale.paymentMethod] || 'Pago'}</small></span><span className="overview-recent-amount"><strong>{money(netSaleTotal(sale))}</strong>{sale.status !== 'completed' && <small>{saleStatusLabel(sale.status)}</small>}</span><ArrowUpRight size={16}/></>;
   return <Link href={`/panel/ventas/${sale.id}`}>{content}</Link>;
 }
 

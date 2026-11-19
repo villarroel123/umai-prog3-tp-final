@@ -42,6 +42,7 @@ export async function PATCH(request, context) {
     const sessions = await result.database.collection('cashSessions')
       .where('ownerId', '==', user.businessId)
       .get();
+    if (sessions.docs.some(document => document.data().status === 'open' && document.data().registerName === register.name)) return fail('Cerrá el turno antes de cambiar el nombre de esta caja.', 409);
     const aliases = [...new Set([...(register.aliases || []), register.name])];
     const collidesWithHistory = sessions.docs.some(document => {
       const session = document.data();
@@ -51,11 +52,14 @@ export async function PATCH(request, context) {
     if (collidesWithHistory) return fail('Ya hay turnos históricos con ese nombre.', 409);
 
     const newRef = businessRef.collection('registers').doc(name);
+    const assignedCashiers = await businessRef.collection('cashiers').where('registerId', '==', ref.id).get();
+    if (assignedCashiers.size > 450) return fail('Hay demasiados cajeros asignados para cambiar esta caja en una sola operación.', 409);
     const nextRegister = { ...register, name, aliases, updatedAt: new Date().toISOString(), updatedBy: user.uid, archived: false };
     const batch = result.database.batch();
     batch.set(newRef, nextRegister);
     if (ref.id !== name) {
       batch.set(ref, { ...register, archived: true, renamedTo: name, updatedAt: nextRegister.updatedAt });
+      assignedCashiers.docs.forEach(document => batch.update(document.ref, { registerId: name, updatedAt: nextRegister.updatedAt }));
     }
     await batch.commit();
 
@@ -70,7 +74,9 @@ export async function DELETE(_request, context) {
     const result = await getOwnerAndRegister(context);
     if (result.error) return result.error;
 
-    const { user, database, ref, register } = result;
+    const { user, database, businessRef, ref, register } = result;
+    const assignedCashiers = await businessRef.collection('cashiers').where('registerId', '==', ref.id).limit(1).get();
+    if (!assignedCashiers.empty) return fail('Reasigná los cajeros antes de eliminar esta caja.', 409);
     const names = [...new Set([...(register.aliases || []), register.name])];
     const sessions = await database.collection('cashSessions')
       .where('ownerId', '==', user.businessId)

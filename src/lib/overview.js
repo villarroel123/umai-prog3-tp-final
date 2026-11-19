@@ -1,4 +1,5 @@
 import { roundMoney } from './models.js';
+import { netSaleTotal, remainingQuantity } from './sale-history.js';
 
 function localDay(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -13,17 +14,18 @@ export function buildOverview(sales, productsOrNow = [], at = new Date()) {
     return { key: localDay(date), label: date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }), total: 0, count: 0 };
   });
   const byDay = new Map(days.map(day => [day.key, day]));
-  const valid = sales.filter(sale => sale.status !== 'voided');
+  const valid = sales.filter(sale => ['completed', 'partially_returned'].includes(sale.status));
   const top = new Map();
   for (const sale of valid) {
     const day = byDay.get(localDay(new Date(sale.createdAt)));
     if (!day) continue;
-    day.total = roundMoney(day.total + sale.total);
+    day.total = roundMoney(day.total + netSaleTotal(sale));
     day.count += 1;
     for (const item of sale.items || []) {
       const current = top.get(item.productId) || { id: item.productId, name: item.name, quantity: 0, total: 0 };
-      current.quantity += item.quantity;
-      current.total = roundMoney(current.total + item.lineTotal);
+      const remaining = remainingQuantity(sale, item);
+      current.quantity += remaining;
+      current.total = roundMoney(current.total + item.lineTotal * remaining / item.quantity);
       top.set(item.productId, current);
     }
   }

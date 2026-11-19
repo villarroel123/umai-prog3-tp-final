@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/guard';
-import PanelPlaceholder from '@/components/PanelPlaceholder';
-import { Boxes } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import CashierStock from '@/components/CashierStock';
 export const metadata = { title: 'Consultar stock' };
-export default async function Page() { await requireUser('/caja/stock', ['cashier']); return <PanelPlaceholder eyebrow="CAJA" title="Consultar stock" description="El catálogo y el stock se consultan desde la pantalla de caja." icon={Boxes} detail="La vista independiente se incorporará en una etapa posterior."/>; }
+export default async function Page() { const user = await requireUser('/caja/stock', ['cashier']); if (user.permissions?.viewStock !== true && user.permissions?.sell !== true) redirect('/caja/perfil'); return <CashierStock/>; }

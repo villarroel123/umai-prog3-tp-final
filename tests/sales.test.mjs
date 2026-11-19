@@ -5,7 +5,7 @@ import { recordSale } from '../src/lib/sale-service.js';
 import { filterSales, salesSummary } from '../src/lib/sale-history.js';
 import { buildOverview } from '../src/lib/overview.js';
 
-const owner = { uid: 'owner-1', businessId: 'owner-1', name: 'Dueña' };
+const owner = { uid: 'owner-1', businessId: 'owner-1', name: 'Dueña', role: 'business_owner' };
 const uuid = number => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
 const checkout = (id, payments = [{ method: 'cash', amount: 200 }], extra = {}) => parseCheckout({
   checkoutId: uuid(id), items: [{ productId: 'p1', quantity: 1 }], payments,
@@ -21,7 +21,7 @@ function memoryDb(stock = 2) {
   put('products/p1', { ownerId: owner.uid, name: 'Pan', code: 'P1', unit: 'unidad', price: 200, stock, isActive: true });
   let failBeforeCommit = false;
   const db = {
-    collection(name) { return { doc(id) { return { id, path: `${name}/${id}` }; } }; },
+    collection(name) { return { doc(id) { return { id, path: `${name}/${id}`, collection(child) { return { doc(childId) { return { id: childId, path: `${name}/${id}/${child}/${childId}` }; } }; } }; } }; },
     async runTransaction(callback) {
       for (let attempt = 0; attempt < 10; attempt++) {
         const reads = new Map();
@@ -61,6 +61,17 @@ test('registra efectivo, descuenta stock y crea el movimiento en la misma transa
   assert.equal(state.data('products/p1').stock, 1);
   assert.equal(state.data(`inventoryMovements/${uuid(1)}_p1`).delta, -1);
   assert.equal(state.data('cashSessions/session-1').cashSalesTotal, 200);
+});
+
+test('el precio puntual queda en la venta y no modifica el catálogo', async () => {
+  const state = memoryDb();
+  const input = checkout(21, [{ method: 'cash', amount: 180 }], { items: [{ productId: 'p1', quantity: 1, unitPriceOverride: 180 }], amountReceived: 200 });
+  const sale = await recordSale(state.db, owner, input);
+  assert.equal(sale.items[0].unitPrice, 180);
+  assert.equal(sale.items[0].catalogUnitPrice, 200);
+  assert.equal(sale.priceAuthorizedBy, owner.uid);
+  assert.equal(state.data('products/p1').price, 200);
+  assert.throws(() => checkout(22, undefined, { items: [{ productId: 'p1', quantity: 1, unitPriceOverride: 0 }] }), /precio puntual/i);
 });
 
 test('tarjeta guarda referencia; transferencia exige confirmación manual', async () => {
@@ -160,4 +171,38 @@ test('otro propietario cobra con el inventario compartido y queda identificado',
   assert.equal(sale.cashierId, 'owner-2');
   assert.equal(state.data('products/p1').stock, 0);
   assert.equal(state.data('cashSessions/session-1').salesCount, 1);
+});
+
+test('el cajero cobra únicamente si está activo, autorizado y en su caja', async () => {
+  const state = memoryDb(2);
+  const cashier = { uid: 'cashier-1', businessId: 'owner-1', name: 'Cami', role: 'cashier' };
+  const path = 'businesses/owner-1/cashiers/cashier-1';
+  state.rows.set(path, { version: 1, data: { status: 'active', businessId: 'owner-1', registerId: 'Caja 1', permissions: { sell: true } } });
+  const sale = await recordSale(state.db, cashier, checkout(15));
+  assert.equal(sale.cashierId, 'cashier-1');
+  assert.equal(sale.registerId, 'Caja 1');
+  assert.equal(sale.turnId, 'session-1');
+  state.rows.get(path).data.status = 'inactive';
+  await assert.rejects(recordSale(state.db, cashier, checkout(16)), /cajero no tiene permiso/);
+  state.rows.get(path).data.status = 'active';
+  state.rows.get(path).data.registerId = 'Caja 2';
+  await assert.rejects(recordSale(state.db, cashier, checkout(16)), /caja asignada/);
+  state.rows.get(path).data.registerId = 'Caja 1';
+  state.rows.get(path).data.permissions.sell = false;
+  await assert.rejects(recordSale(state.db, cashier, checkout(16)), /cajero no tiene permiso/);
+  await assert.rejects(recordSale(state.db, owner, checkout(15)), /solicitud de cobro ya se usó/);
+});
+
+test('el cajero solo puede ajustar el precio con permiso vigente del propietario', async () => {
+  const state = memoryDb();
+  const cashier = { uid: 'cashier-1', businessId: 'owner-1', name: 'Cami', role: 'cashier' };
+  const path = 'businesses/owner-1/cashiers/cashier-1';
+  state.rows.set(path, { version: 1, data: { status: 'active', businessId: 'owner-1', registerId: 'Caja 1', permissions: { sell: true, adjustPrices: false } } });
+  const input = checkout(23, [{ method: 'cash', amount: 180 }], { items: [{ productId: 'p1', quantity: 1, unitPriceOverride: 180 }], amountReceived: 200 });
+  await assert.rejects(recordSale(state.db, cashier, input), /autorización del jefe/);
+  state.rows.get(path).data.permissions.adjustPrices = true;
+  state.rows.get(path).data.priceAuthorizedBy = 'owner-1';
+  const sale = await recordSale(state.db, cashier, input);
+  assert.equal(sale.priceAuthorizedBy, 'owner-1');
+  assert.equal(sale.items[0].unitPrice, 180);
 });

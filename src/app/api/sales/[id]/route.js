@@ -5,6 +5,7 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET(_request, { params }) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
+    if (user.role === 'cashier' && user.permissions?.sell !== true) return fail('Sin permiso.', 403);
     const snap = await db().collection('sales').doc((await params).id).get();
     if (!snap.exists) return fail('Comprobante no encontrado.', 404);
     const sale = snap.data();
@@ -30,6 +31,7 @@ export async function PATCH(request, { params }) {
       if (!saleSnap.exists || saleSnap.data().ownerId !== user.businessId) throw new Error('Venta no encontrada.');
       const sale = saleSnap.data();
       if (sale.status === 'voided') return { id, ...sale };
+      if (sale.status !== 'completed') throw new Error('Esta venta tiene devoluciones y ya no se puede anular.');
       const business = await transaction.get(businessRef);
       if (business.data()?.activeSessionId !== sale.cashSessionId) throw new Error('Solo podés anular ventas de la caja que sigue abierta.');
       const sessionRef = database.collection('cashSessions').doc(sale.cashSessionId);
@@ -51,7 +53,7 @@ export async function PATCH(request, { params }) {
           delta: item.quantity, reason: 'sale_void', actorId: user.uid, createdAt: voidedAt,
         });
       }
-      transaction.update(saleRef, { status: 'voided', voidReason: reason, voidedAt, voidedBy: user.uid });
+      transaction.update(saleRef, { status: 'voided', voidReason: reason, voidedAt, voidedBy: user.uid, voidAuthorizedBy: user.uid });
       transaction.update(sessionRef, {
         grossTotal: roundMoney(Math.max(0, sessionSnap.data().grossTotal - sale.total)),
         cashSalesTotal: roundMoney(Math.max(0, sessionSnap.data().cashSalesTotal - cashPortion)),
@@ -59,11 +61,11 @@ export async function PATCH(request, { params }) {
         voidedTotal: roundMoney((sessionSnap.data().voidedTotal || 0) + sale.total),
         voidCount: (sessionSnap.data().voidCount || 0) + 1,
       });
-      return { id, ...sale, status: 'voided', voidReason: reason, voidedAt, voidedBy: user.uid };
+      return { id, ...sale, status: 'voided', voidReason: reason, voidedAt, voidedBy: user.uid, voidAuthorizedBy: user.uid };
     });
     return json({ sale: result });
   } catch (error) {
-    if (['Venta no encontrada.', 'Solo podés anular ventas de la caja que sigue abierta.', 'La caja de esta venta ya está cerrada.', 'No se puede reponer stock: falta un producto de la venta.'].includes(error.message)) return fail(error.message, 409);
+    if (['Venta no encontrada.', 'Esta venta tiene devoluciones y ya no se puede anular.', 'Solo podés anular ventas de la caja que sigue abierta.', 'La caja de esta venta ya está cerrada.', 'No se puede reponer stock: falta un producto de la venta.'].includes(error.message)) return fail(error.message, 409);
     return safeError(error);
   }
 }

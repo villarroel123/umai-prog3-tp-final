@@ -9,6 +9,7 @@ export async function GET() {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
     if (!user.businessId || !['business_owner', 'cashier'].includes(user.role)) return fail('Sin permiso.', 403);
+    if (user.role === 'cashier' && user.permissions?.sell !== true) return fail('Sin permiso.', 403);
     const query = db().collection('sales').where('ownerId', '==', user.businessId);
     const snap = await query.get();
     return json({ sales: snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(sale => user.role !== 'cashier' || sale.cashierId === user.uid).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
@@ -20,14 +21,15 @@ export async function POST(request) {
     const user = await sessionUser();
     if (!user) return fail('Iniciá sesión.', 401);
     if (!['business_owner', 'cashier'].includes(user.role)) return fail('Sin permiso para cobrar.', 403);
+    if (user.role === 'cashier' && user.permissions?.sell !== true) return fail('No tenés permiso para registrar ventas.', 403);
     let checkout;
     try { checkout = parseCheckout(await request.json()); }
     catch (error) { return fail(error.message); }
-    if (user.role === 'cashier' && (checkout.adjustment.type !== 'none' || [...checkout.requested.values()].some(item => item.adjustment.type !== 'none'))) return fail('Los ajustes de precio requieren autorización del jefe.', 403);
+    if (user.role === 'cashier' && (checkout.adjustment.type !== 'none' || [...checkout.requested.values()].some(item => item.adjustment.type !== 'none' || item.unitPriceOverride != null)) && user.permissions?.adjustPrices !== true) return fail('Los ajustes de precio requieren autorización del jefe.', 403);
     const sale = await recordSale(db(), user, checkout);
     return json({ sale }, 201);
   } catch (error) {
-    if (/^(Esta solicitud de cobro|No encontramos el negocio|Abrí la caja|La caja activa|Uno de los productos|Precio inválido|Stock insuficiente|El total de la venta|Los pagos deben sumar|No se pudo generar el número)/.test(error.message)) return fail(error.message, 409);
+    if (/^(Esta solicitud de cobro|No encontramos el negocio|Abrí la caja|La caja activa|El cajero no tiene|Los ajustes de precio|Uno de los productos|Precio inválido|Stock insuficiente|El total de la venta|Los pagos deben sumar|No se pudo generar el número)/.test(error.message)) return fail(error.message, 409);
     return safeError(error);
   }
 }

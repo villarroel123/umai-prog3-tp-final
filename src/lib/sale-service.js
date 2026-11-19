@@ -24,7 +24,7 @@ export async function recordSale(database, user, checkout) {
   return database.runTransaction(async transaction => {
     const existing = await transaction.get(saleRef);
     if (existing.exists) {
-      if (existing.data().ownerId !== user.businessId || (existing.data().requestHash && existing.data().requestHash !== hash)) throw new Error('Esta solicitud de cobro ya se usó para otra venta.');
+      if (existing.data().ownerId !== user.businessId || existing.data().cashierId !== user.uid || (existing.data().requestHash && existing.data().requestHash !== hash)) throw new Error('Esta solicitud de cobro ya se usó para otra venta.');
       return { id: existing.id, ...existing.data() };
     }
     const business = await transaction.get(businessRef);
@@ -34,15 +34,26 @@ export async function recordSale(database, user, checkout) {
     const sessionRef = database.collection('cashSessions').doc(sessionId);
     const sessionSnap = await transaction.get(sessionRef);
     if (!sessionSnap.exists || sessionSnap.data().ownerId !== user.businessId || sessionSnap.data().status !== 'open') throw new Error('La caja activa ya no está disponible.');
+    let priceAuthorizedBy = user.role === 'business_owner' ? user.uid : null;
+    if (user.role === 'cashier') {
+      const employee = await transaction.get(businessRef.collection('cashiers').doc(user.uid));
+      if (!employee.exists || employee.data().status !== 'active' || employee.data().businessId !== user.businessId || employee.data().permissions?.sell !== true) throw new Error('El cajero no tiene permiso para cobrar.');
+      const assigned = employee.data().registerId;
+      if (!assigned) throw new Error('El cajero no tiene una caja asignada.');
+      if (assigned !== (sessionSnap.data().registerId || sessionSnap.data().registerName)) throw new Error('La caja activa no corresponde a la caja asignada.');
+      const needsPriceAuthorization = adjustment.type !== 'none' || [...requested.values()].some(item => item.adjustment.type !== 'none' || item.unitPriceOverride != null);
+      if (needsPriceAuthorization && (employee.data().permissions?.adjustPrices !== true || !employee.data().priceAuthorizedBy)) throw new Error('Los ajustes de precio requieren autorización del jefe.');
+      priceAuthorizedBy = needsPriceAuthorization ? employee.data().priceAuthorizedBy : null;
+    }
     const productSnaps = await Promise.all(productRefs.map(ref => transaction.get(ref)));
     const lines = productSnaps.map(snap => {
       const product = snap.data();
-      const { quantity, adjustment: lineAdjustment } = requested.get(snap.id);
+      const { quantity, adjustment: lineAdjustment, unitPriceOverride } = requested.get(snap.id);
       if (!snap.exists || product.ownerId !== user.businessId || product.archivedAt || product.isActive === false) throw new Error('Uno de los productos ya no está disponible.');
       const price = product.salePrice ?? product.price;
       if (!Number.isFinite(price) || price <= 0 || price > 100000000 || Math.abs(price * 100 - Math.round(price * 100)) > 1e-6) throw new Error(`Precio inválido de ${product.name}.`);
       if (!Number.isInteger(product.stock) || product.stock < quantity) throw new Error(`Stock insuficiente de ${product.name}.`);
-      return { product: { id: snap.id, ...product, price }, quantity, adjustment: lineAdjustment };
+      return { product: { id: snap.id, ...product, catalogUnitPrice: price, price: unitPriceOverride ?? price }, quantity, adjustment: lineAdjustment };
     });
     const priced = priceTicket(lines, adjustment);
     if (!Number.isFinite(priced.total) || priced.total <= 0) throw new Error('El total de la venta debe ser mayor a cero.');
@@ -54,7 +65,7 @@ export async function recordSale(database, user, checkout) {
       ownerId: user.businessId, businessId: user.businessId, cashierId: user.uid, cashierName: user.name,
       businessName: sessionSnap.data().businessName || user.name,
       buyerName: checkout.customerName || 'Consumidor final',
-      cashSessionId: sessionId, registerName: sessionSnap.data().registerName,
+      cashSessionId: sessionId, turnId: sessionId, registerId: sessionSnap.data().registerId || sessionSnap.data().registerName, registerName: sessionSnap.data().registerName,
       receiptNumber, items: priced.items, baseSubtotal: priced.baseSubtotal,
       lineAdjustmentsTotal: priced.lineAdjustmentsTotal, subtotal: priced.subtotal,
       adjustment: priced.adjustment, saleAdjustmentAmount: priced.saleAdjustmentAmount,
@@ -63,6 +74,7 @@ export async function recordSale(database, user, checkout) {
       transferConfirmedAt: transferConfirmed ? createdAt : null,
       transferConfirmedBy: transferConfirmed ? user.uid : null,
       requestHash: hash, status: 'completed', createdAt,
+      priceAuthorizedBy: priceAuthorizedBy && (adjustment.type !== 'none' || priced.items.some(item => item.adjustment.type !== 'none' || item.catalogUnitPrice !== item.unitPrice)) ? priceAuthorizedBy : null,
     };
     for (let index = 0; index < productRefs.length; index++) {
       const previousStock = productSnaps[index].data().stock;

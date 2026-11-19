@@ -11,6 +11,7 @@ export default function SalePrint({ sale }) {
     {(sale.payments || [{ method: sale.paymentMethod, amount: sale.total }]).map((payment, index) => <div className="sale-print-row" key={index}><span>{PAYMENT_METHODS[payment.method]}{payment.reference ? ` · Ref. ${payment.reference}` : ''}</span><strong>{money(payment.amount)}</strong></div>)}
     {sale.payments?.some(payment => payment.method === 'cash') && <div className="sale-print-row"><span>Recibido / Vuelto</span><strong>{money(sale.amountReceived)} / {money(sale.change)}</strong></div>}
     {sale.status === 'voided' && <p className="sale-print-void">VENTA ANULADA · {sale.voidReason}</p>}
+    {sale.refundedTotal > 0 && <p className="sale-print-void">{sale.status === 'returned' ? 'VENTA DEVUELTA' : 'DEVOLUCIÓN PARCIAL'} · Reintegrado {money(sale.refundedTotal)}</p>}
     <p className="sale-print-foot">Registro interno de venta. No es factura ni comprobante fiscal.</p>
   </section>;
 }

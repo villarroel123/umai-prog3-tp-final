@@ -6,11 +6,12 @@ import { fail, json, safeError } from '@/lib/api';
 export async function GET(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'business_owner') return fail('Sin permiso.', 403);
+    if (user.role !== 'business_owner' && !(user.role === 'cashier' && user.permissions?.manageCash === true)) return fail('Sin permiso.', 403);
     const id = new URL(request.url).searchParams.get('sessionId');
     if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return fail('Indicá una caja válida.');
     const session = await db().collection('cashSessions').doc(id).get();
     if (!session.exists || session.data().ownerId !== user.businessId) return fail('Sin permiso.', 403);
+    if (user.role === 'cashier' && user.registerId !== (session.data().registerId || session.data().registerName)) return fail('Sin permiso.', 403);
     const snap = await db().collection('cashMovements').where('cashSessionId', '==', id).get();
     return json({ movements: snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
   } catch (error) { return safeError(error); }
@@ -19,7 +20,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
-    if (user.role !== 'business_owner') return fail('Solo un propietario puede registrar movimientos.', 403);
+    if (user.role !== 'business_owner' && !(user.role === 'cashier' && user.permissions?.manageCash === true && user.registerId)) return fail('No tenés permiso para registrar movimientos.', 403);
     const body = await request.json();
     if (!body || typeof body !== 'object') return fail('Datos inválidos.');
     const type = body.type;
@@ -32,13 +33,18 @@ export async function POST(request) {
     const businessRef = database.collection('businesses').doc(user.businessId);
     const result = await database.runTransaction(async transaction => {
       const existing = await transaction.get(movementRef);
-      if (existing.exists) return existing.data().ownerId === user.businessId ? { movement: { id: existing.id, ...existing.data() } } : null;
+      if (existing.exists) return existing.data().ownerId === user.businessId && (user.role === 'business_owner' || existing.data().actorId === user.uid) ? { movement: { id: existing.id, ...existing.data() } } : null;
       const business = await transaction.get(businessRef);
       const sessionId = business.data()?.activeSessionId;
       if (!sessionId) throw new Error('Abrí la caja antes de registrar un movimiento.');
       const sessionRef = database.collection('cashSessions').doc(sessionId);
       const snap = await transaction.get(sessionRef);
       if (!snap.exists || snap.data().ownerId !== user.businessId || snap.data().status !== 'open') throw new Error('La caja activa no está disponible.');
+      if (user.role === 'cashier' && user.registerId !== (snap.data().registerId || snap.data().registerName)) throw new Error('La caja activa no está disponible.');
+      if (user.role === 'cashier') {
+        const employee = await transaction.get(businessRef.collection('cashiers').doc(user.uid));
+        if (!employee.exists || employee.data().status !== 'active' || employee.data().registerId !== user.registerId || employee.data().permissions?.manageCash !== true) throw new Error('Sin permiso para operar esta caja.');
+      }
       const signedAmount = type === 'in' ? amount : -amount;
       const nextAdjustments = roundMoney((snap.data().cashAdjustmentsTotal || 0) + signedAmount);
       const expectedCash = roundMoney(snap.data().openingAmount + snap.data().cashSalesTotal + nextAdjustments);
@@ -51,6 +57,7 @@ export async function POST(request) {
     if (!result) return fail('Movimiento inválido.', 409);
     return json(result, 201);
   } catch (error) {
+    if (error.message === 'Sin permiso para operar esta caja.') return fail(error.message, 403);
     if (['Abrí la caja antes de registrar un movimiento.', 'La caja activa no está disponible.', 'El retiro supera el efectivo esperado en caja.'].includes(error.message)) return fail(error.message, 409);
     return safeError(error);
   }
