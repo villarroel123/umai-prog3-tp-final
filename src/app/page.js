@@ -20,9 +20,6 @@ export default function Home() {
             <Link className="button-primary demo-cta" href="/caja-cobro">
               Probar demo <ArrowRight size={17} />
             </Link>
-            <Link className="button-primary login-cta" href="/ingresar">
-              Ingresar
-            </Link>
           </div>
         </div>
         <div className="public-hero-art" aria-hidden="true">
