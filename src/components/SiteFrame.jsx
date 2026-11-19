@@ -1,7 +1,6 @@
 'use client';
 import { usePathname } from 'next/navigation';
 import Header from './Header';
-import Footer from './Footer';
 import { useStore } from '@/context/StoreContext';
 
 export default function SiteFrame({ children }) {
@@ -16,5 +15,5 @@ export default function SiteFrame({ children }) {
   ];
   const section = privateSections.find(([route]) => pathname === route || pathname.startsWith(`${route}/`));
   if (section) return <div className="private-frame"><Header sectionTitle={section[1]}/><main>{children}</main></div>;
-  return <><Header/><main>{children}</main><Footer/></>;
+  return <><Header/><main>{children}</main></>;
 }

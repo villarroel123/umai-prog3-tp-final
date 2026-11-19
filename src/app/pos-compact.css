@@ -45,5 +45,15 @@
 .payment-disclaimer{margin:6px 0 0}
 .payment-options button.selected{border-color:#b785e6;background:#f5ecfd;color:#8049bb}
 .empty-list .text-link{margin-top:6px}
+.ticket-line.is-selected{background:#f7f0fe;box-shadow:inset 3px 0 #9156cf}
+.ticket-line:focus-visible{outline:2px solid #9156cf;outline-offset:-2px}
+.pos-action-modal{width:min(560px,100%)}
+.pos-checkout-modal{width:min(720px,100%)}
+.pos-checkout-modal .payment-block{display:block;max-height:none;min-height:0;overflow:visible;padding:0;border-top:0}
+.pos-checkout-modal .payment-details{max-height:min(65vh,680px);overflow:auto}
+.pos-checkout-modal .payment-footer{position:static;padding-top:12px}
+.pos-hotkey-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;margin:14px 0 4px;color:#777780;font-size:11px}
+.pos-hotkey-legend span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.pos-hotkey-legend kbd{padding:3px 6px;border:1px solid #dfdce5;border-radius:4px;background:#f7f6f9;color:#6c4a89;font:700 10px Inter,Arial,sans-serif}
 @media(max-width:900px){.products-panel,.ticket-panel{position:static;height:auto;min-height:0}.product-list{max-height:390px;overflow-y:auto}.ticket-lines{min-height:110px;max-height:260px}.payment-details{overflow:visible}.payment-block{max-height:none}.payment-footer{position:static}.product-list-head{position:sticky;top:0}}
 @media(max-width:580px){.scan-pending,.scan-confirmation{margin-inline:16px}.product-row{min-height:57px}.ticket-line{padding-inline:14px}.ticket-total{padding-inline:14px}.payment-block{padding-inline:14px}.inventory-card>.product-initial{display:grid}}

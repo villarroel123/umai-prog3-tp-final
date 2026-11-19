@@ -6,15 +6,25 @@ export const ADJUSTMENT_LABELS = { none: 'Sin ajuste', discount: 'Descuento', su
 export function normalizeAdjustment(value) {
   if (!value || value.type === 'none') return EMPTY_ADJUSTMENT;
   const type = String(value.type || '');
+  if (!['discount', 'surcharge'].includes(type)) throw new Error('El descuento o recargo no es válido.');
+  if (value.mode === 'fixed') {
+    const amount = Number(value.amount);
+    if (!Number.isFinite(amount) || amount < 0 || amount > 100000000 || Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) {
+      throw new Error('El ajuste fijo debe ser un importe válido.');
+    }
+    return { type, mode: 'fixed', amount: roundMoney(amount), percent: 0 };
+  }
   const percent = Number(value.percent);
-  if (!['discount', 'surcharge'].includes(type) || !Number.isFinite(percent) || percent < 0 || percent > 100 || Math.abs(percent * 100 - Math.round(percent * 100)) > 1e-6) {
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100 || Math.abs(percent * 100 - Math.round(percent * 100)) > 1e-6) {
     throw new Error('El descuento o recargo debe ser un porcentaje entre 0 y 100.');
   }
   return { type, percent };
 }
 
 export function adjustmentAmount(base, adjustment) {
-  const amount = roundMoney(base * adjustment.percent / 100);
+  const amount = adjustment.mode === 'fixed'
+    ? adjustment.type === 'discount' ? Math.min(roundMoney(base), adjustment.amount) : adjustment.amount
+    : roundMoney(base * adjustment.percent / 100);
   return adjustment.type === 'discount' ? -amount : adjustment.type === 'surcharge' ? amount : 0;
 }
 
@@ -24,7 +34,7 @@ export function priceLine(product, quantity, adjustmentInput) {
   const lineAdjustmentAmount = adjustmentAmount(baseTotal, adjustment);
   return {
     productId: product.id,
-    code: product.code,
+    code: product.barcode || product.code,
     name: product.name,
     category: product.category || 'Otros',
     unit: product.unit,

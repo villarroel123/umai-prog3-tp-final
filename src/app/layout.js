@@ -13,5 +13,5 @@ import './cashiers.css';
 import './cashier-pos.css';
 import { StoreProvider } from '@/context/StoreContext';
 import SiteFrame from '@/components/SiteFrame';
-export const metadata = { title: { default: 'caja. — cobros en orden', template: '%s | caja.' }, description: 'Sistema de caja para registrar productos, ventas, pagos y comprobantes en un solo lugar.' };
+export const metadata = { title: { default: 'ZETA — cobros en orden', template: '%s | ZETA' }, description: 'Sistema de cobros ZETA para registrar productos, ventas, pagos y comprobantes en un solo lugar.' };
 export default function RootLayout({ children }) { return <html lang="es"><body><StoreProvider><SiteFrame>{children}</SiteFrame></StoreProvider></body></html>; }

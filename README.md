@@ -1,4 +1,4 @@
-# caja.
+# ZETA
 
 Sistema web de punto de venta para almacenes, kioscos y pequeños comercios. Permite administrar productos y stock, abrir y cerrar caja, cobrar y consultar ventas. Tarjeta y transferencia se registran manualmente; la aplicación no procesa dinero ni emite facturas fiscales.
 
@@ -6,7 +6,7 @@ Sistema web de punto de venta para almacenes, kioscos y pequeños comercios. Per
 
 Next.js 16 (App Router), React 19, Firebase Authentication, Cloud Firestore y Firebase Admin SDK. Las rutas privadas verifican la cookie de sesión en el servidor. Las lecturas y escrituras de Firestore pasan por Route Handlers; `firestore.rules` niega acceso directo desde el navegador.
 
-La interfaz usa blanco, negro y violeta como acento, tipografía Inter y el logo `caja.`. El panel tiene barra lateral en escritorio y menú en móvil.
+La interfaz usa blanco, negro y violeta como acento, tipografía Inter y el logo ZETA. El panel tiene barra lateral en escritorio y menú en móvil.
 
 ## Roles y espacios
 
@@ -65,6 +65,24 @@ En Vercel, configurá las mismas variables en **Project Settings → Environment
 ## Verificación
 
 `npm test` cubre validaciones, pagos, concurrencia, reintentos, stock, métricas y permisos de un cajero al cobrar. `npm run build` verifica compilación y rutas. El flujo completo de alta, acceso, cambio de clave y cobro con cuentas reales requiere una prueba manual en Firebase; estas pruebas automatizadas no crean empleados ni ventas reales.
+
+## Caja, atajos e impresion ESC/POS
+
+La caja operativa vive en `/caja` y conserva inventario, autenticación, pago mixto y guardado transaccional. La interfaz está en `src/components/CashierPosView.jsx` y el estado compartido en `src/components/PosWorkspace.jsx`. F1 elimina un producto; F2 y F3 registran devoluciones autorizadas de una venta anterior; F4 aplica descuentos, recargos o un precio puntual autorizado; F9 vuelve al buscador y F10 lleva al pago.
+
+Las devoluciones parciales de ventas cobradas se registran desde la caja o desde `/ventas/{id}`. Ambas entradas usan la misma transacción y guardan el reintegro en `saleReturns`; reponen stock y se descuentan del cierre Z. El cierre se guarda en `cashSessions` antes de imprimirlo.
+
+`src/lib/impresora.js` concentra interfaz, tipo, ancho de 48 columnas, apertura del cajon y timeout. `src/lib/impresion.js` genera tickets ESC/POS. Las rutas estan en `src/app/api/print/` y usan `runtime = 'nodejs'`. Los fallos se guardan aparte en `printJobs`, sin borrar ventas ni cierres.
+
+1. Ejecuta `npm install` para instalar `node-thermal-printer` (licencia ISC; no requiere servicios pagos).
+2. En `.env.local`, configura `IMPRESORA_INTERFACE=//localhost/TICKETS` para una impresora USB compartida en Windows, o `IMPRESORA_INTERFACE=tcp://192.168.1.50:9100` para una impresora de red. Cambia la IP por la de tu impresora. Configura `IMPRESORA_TIPO=epson`, `star`, `tanca`, `daruma`, `brother` o `custom` segun el modelo.
+3. En Windows instala el driver del fabricante, imprime una pagina de prueba desde Preferencias de impresion y comparte la impresora con el nombre `TICKETS`. Next.js debe ejecutarse en la misma PC con una cuenta de Windows que pueda imprimir en esa cola. Para red, verifica la IP y el puerto ESC/POS (normalmente 9100).
+4. Reinicia `npm run dev`, ingresa como propietario y abre **Cierres de caja** (`/cierres`). Pulsa **Probar impresora**; deberias recibir un ticket corto. La prueba no abre el cajon.
+5. Para probar el cobro real, abre una caja, agrega un producto, presiona F10, completa y confirma el pago. La venta se guarda antes de imprimir. Si falla la impresora, aparece el error y **Reimprimir ticket** vuelve a enviar el mismo comprobante. Al cerrar una caja se imprime el cierre Z, que tambien se puede reimprimir desde **Cierres de caja**.
+
+El firmware de cada impresora puede variar en acentos y comandos ESC/POS. Usa rollo de 80 mm; el ancho esta configurado en 48 columnas.
+
+Este proyecto usa JavaScript y CSS propios en lugar de TypeScript y Tailwind porque esa es la base que ya tiene el repositorio; no se migro el resto de la aplicacion.
 
 ## Uso de IA
 

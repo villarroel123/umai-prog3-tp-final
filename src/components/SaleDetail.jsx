@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Printer } from 'lucide-react';
 import { money, PAYMENT_METHODS, receiptCode } from '@/lib/models';
 import SalePrint from './SalePrint';
+import CreditNoteForm from './CreditNoteForm';
 import { netSaleTotal, saleStatusLabel } from '@/lib/sale-history';
 
 export default function SaleDetail({ id, backHref = '/ventas', canVoid = false }) {
@@ -12,6 +13,12 @@ export default function SaleDetail({ id, backHref = '/ventas', canVoid = false }
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState('');
+  async function reloadSale() {
+    const response = await fetch(`/api/sales/${id}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No encontramos la venta.');
+    setSale(data.sale);
+  }
   useEffect(() => { fetch(`/api/sales/${id}`).then(response => response.json()).then(data => { if (data.error) throw new Error(data.error); setSale(data.sale); }).catch(cause => setError(cause.message)).finally(() => setLoading(false)); }, [id]);
   async function voidSale(event) {
     event.preventDefault(); setError(''); setBusy(true);
@@ -28,6 +35,7 @@ export default function SaleDetail({ id, backHref = '/ventas', canVoid = false }
       {sale.status === 'voided' && <div className="void-notice"><strong>Venta anulada</strong><span>Motivo: {sale.voidReason}</span><small>{sale.voidedAt && new Date(sale.voidedAt).toLocaleString('es-AR')}</small></div>}
       {sale.refundedTotal > 0 && <div className="void-notice"><strong>{saleStatusLabel(sale.status)}</strong><span>Reintegrado: {money(sale.refundedTotal)} · Motivo: {sale.lastReturnReason}</span><small>Operador: {sale.lastReturnedBy} · Autorizó: {sale.lastReturnAuthorizedBy} · {new Date(sale.lastReturnedAt).toLocaleString('es-AR')}</small></div>}<div className="detail-grid"><div className="detail-card"><div className="detail-card-head"><span className="eyebrow">PRODUCTOS</span><span>{sale.items.reduce((sum, item) => sum + item.quantity, 0)} artículos</span></div><div className="detail-items">{sale.items.map(item => <div key={item.productId}><div><strong>{item.name}</strong><small>{item.code} · {item.quantity} × {money(item.unitPrice)}</small>{item.catalogUnitPrice != null && item.catalogUnitPrice !== item.unitPrice && <small>Precio de catálogo: {money(item.catalogUnitPrice)} · Autorizó: {sale.priceAuthorizedBy || '—'}</small>}{item.adjustment?.type !== 'none' && item.adjustment?.percent > 0 && <small>{item.adjustment.type === 'discount' ? 'Descuento' : 'Recargo'} {item.adjustment.percent}%: {money(item.adjustmentAmount)}</small>}</div><strong>{money(item.lineTotal)}</strong></div>)}</div>{(sale.lineAdjustmentsTotal !== 0 || sale.saleAdjustmentAmount !== 0) && <div className="detail-adjustments"><span>Productos <strong>{money(sale.baseSubtotal ?? sale.subtotal ?? sale.total)}</strong></span>{sale.lineAdjustmentsTotal !== 0 && <span>Ajustes por producto <strong>{money(sale.lineAdjustmentsTotal)}</strong></span>}{sale.saleAdjustmentAmount !== 0 && <span>{sale.adjustment?.type === 'discount' ? 'Descuento' : 'Recargo'} de venta ({sale.adjustment?.percent}%) <strong>{money(sale.saleAdjustmentAmount)}</strong></span>}</div>}<div className="detail-total"><span>TOTAL ORIGINAL</span><strong>{money(sale.total)}</strong></div>{sale.refundedTotal > 0 && <div className="detail-total"><span>DEVUELTO</span><strong>{money(sale.refundedTotal)}</strong></div>}{sale.refundedTotal > 0 && <div className="detail-total"><span>VENTA NETA</span><strong>{money(netSaleTotal(sale))}</strong></div>}</div><div className="detail-card detail-payment"><div className="paid-icon"><Check size={22}/></div><span className="eyebrow">PAGO REGISTRADO</span><h2>{PAYMENT_METHODS[sale.paymentMethod]}</h2><p>La tarjeta y la transferencia se registran manualmente; caja. no procesa ni verifica esos pagos.</p>{(sale.payments || [{ method: sale.paymentMethod, amount: sale.total }]).map((payment, index) => <div key={index}><span>{PAYMENT_METHODS[payment.method]}{payment.reference && <small>Ref. {payment.reference}</small>}</span><strong>{money(payment.amount)}</strong></div>)}{sale.payments?.some(payment => payment.method === 'cash') && <div><span>Efectivo recibido</span><strong>{money(sale.amountReceived)}</strong></div>}{sale.change > 0 && <div><span>Vuelto</span><strong>{money(sale.change)}</strong></div>}<div><span>Negocio</span><strong>{sale.businessName || 'Negocio'}</strong></div><div><span>Caja</span><strong>{sale.registerName}</strong></div><div><span>Operador</span><strong>{sale.cashierName || '—'}</strong></div><div><span>Comprador</span><strong>{sale.buyerName}</strong></div></div></div>
       {canVoid && sale.status === 'completed' && <form className="void-form no-print" onSubmit={voidSale}><div><span className="eyebrow">CORRECCIÓN</span><h2>Anular venta</h2><p>Resta el cobro de la caja y devuelve las unidades al stock. La operación queda visible en el historial. Si hubo un pago externo, gestioná su devolución por separado.</p></div><label>Motivo de anulación<input value={reason} onChange={event => setReason(event.target.value)} minLength={5} maxLength={160} required placeholder="Ej. Error al cargar productos"/></label><button type="submit" disabled={busy} className="button-secondary">{busy ? 'Anulando...' : 'Confirmar anulación'}</button></form>}
+      {canVoid && ['completed', 'partially_returned'].includes(sale.status) && <CreditNoteForm sale={sale} onSuccess={reloadSale}/>}
     </>}
   </div>;
 }

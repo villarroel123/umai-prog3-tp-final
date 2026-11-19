@@ -22,6 +22,7 @@ export default function PosWorkspace({ insidePanel = false, cashier = false, ful
   const [paymentMethod, setPaymentMethod] = useState('cash'); const [splitPayment, setSplitPayment] = useState(false); const [paymentRows, setPaymentRows] = useState([{ method: 'cash', amount: '', reference: '' }, { method: 'card', amount: '', reference: '' }]); const [paymentReference, setPaymentReference] = useState(''); const [transferConfirmed, setTransferConfirmed] = useState(false); const [amountReceived, setAmountReceived] = useState(''); const [customerName, setCustomerName] = useState('');
   const [openingAmount, setOpeningAmount] = useState('0'); const [businessName, setBusinessName] = useState('Mi negocio'); const [registerName, setRegisterName] = useState('Caja 1'); const [closingAmount, setClosingAmount] = useState('');
   const [showClose, setShowClose] = useState(false); const [showMovement, setShowMovement] = useState(false); const [movementType, setMovementType] = useState('in'); const [movementAmount, setMovementAmount] = useState(''); const [movementNote, setMovementNote] = useState(''); const [movementError, setMovementError] = useState(''); const [closedSession, setClosedSession] = useState(null); const [lastSale, setLastSale] = useState(null); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [printError, setPrintError] = useState(''); const [printing, setPrinting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const checkoutId = useRef(null); const checkoutSignature = useRef(null); const checkoutInFlight = useRef(false); const movementId = useRef(null); const barcodeRef = useRef(null);
 
@@ -152,6 +153,7 @@ export default function PosWorkspace({ insidePanel = false, cashier = false, ful
       if (ticket.length) throw new Error('Terminá o limpiá el ticket antes de cerrar la caja.');
       const response = await fetch('/api/cash-sessions', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ closingAmount: Number(closingAmount) }) }); const data = await response.json();
       if (!response.ok) throw new Error(data.error); setClosedSession(data.session); setSession(null); setShowClose(false); setClosingAmount('');
+      if (!cashier) void printDocument('/api/print/z', { sessionId: data.session.id });
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   async function checkout() {
@@ -171,8 +173,19 @@ export default function PosWorkspace({ insidePanel = false, cashier = false, ful
         sale = data.sale;
       }
       setLastSale(sale); setTicket([]); setSaleAdjustment({ type: 'none', percent: 0 }); setAmountReceived(''); setCustomerName(''); setSplitPayment(false); setPaymentRows([{ method: 'cash', amount: '', reference: '' }, { method: 'card', amount: '', reference: '' }]); setPaymentReference(''); setTransferConfirmed(false); checkoutId.current = null; checkoutSignature.current = null;
+      void printDocument('/api/print/sale', { saleId: sale.id });
       window.dispatchEvent(new Event('caja:sale-created')); void load().catch(() => setError('La venta se guardó, pero no pudimos actualizar la caja. Recargá la página para ver el stock actual.'));
     } catch (e) { setError(e.message || 'No se pudo registrar la venta. Conservamos tu ticket para reintentar.'); } finally { checkoutInFlight.current = false; setBusy(false); }
+  }
+
+  async function printDocument(url, payload) {
+    setPrinting(true); setPrintError('');
+    try {
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'No se pudo imprimir.');
+    } catch (cause) { setPrintError(cause.message || 'No se pudo contactar a la impresora.'); }
+    finally { setPrinting(false); }
   }
 
   async function saveMovement(event) {
@@ -194,7 +207,7 @@ export default function PosWorkspace({ insidePanel = false, cashier = false, ful
 
   const paymentProps = { splitPayment, setSplitPayment, paymentMethod, setPaymentMethod, paymentRows, setPaymentRows, paymentReference, setPaymentReference, transferConfirmed, setTransferConfirmed, amountReceived, setAmountReceived, customerName, setCustomerName, total, paymentsTotal, cashPortion, change, paymentReady, checkout, busy, hasItems: lines.length > 0 };
 
-  if (cashier || fullscreen) return <CashierPosView businessName={businessName} cashierName={cashierName} session={session} products={products} visible={visible} query={query} setQuery={setQuery} scan={scan} scanRef={barcodeRef} pendingQuantity={pendingQuantity} scanNotice={scanNotice} error={error} setError={setError} ticket={ticket} priced={priced} itemCount={itemCount} add={add} remove={remove} quantity={quantity} clearTicket={clearTicket} saleAdjustment={saleAdjustment} setSaleAdjustment={changeSaleAdjustment} setLineAdjustment={setLineAdjustment} setUnitPriceOverride={setUnitPriceOverride} paymentProps={paymentProps} busy={busy} loading={loading} manageCash={manageCash} assignedRegister={cashier ? assignedRegister : registerName} openingAmount={openingAmount} setOpeningAmount={setOpeningAmount} openCash={openCash} closeCash={closeCash} closingAmount={closingAmount} setClosingAmount={setClosingAmount} showClose={showClose} setShowClose={setShowClose} showMovement={showMovement} setShowMovement={setShowMovement} movementProps={{ type: movementType, setType: setMovementType, amount: movementAmount, setAmount: setMovementAmount, note: movementNote, setNote: setMovementNote, busy, error: movementError, close: () => setShowMovement(false), submit: saveMovement }} lastSale={lastSale} setLastSale={setLastSale} canAdjust={canAdjust} canReturn={canReturn} refresh={load}/>;
+  if (cashier || fullscreen) return <CashierPosView businessName={businessName} cashierName={cashierName} session={session} products={products} visible={visible} query={query} setQuery={setQuery} scan={scan} scanRef={barcodeRef} pendingQuantity={pendingQuantity} scanNotice={scanNotice} error={error} setError={setError} ticket={ticket} priced={priced} itemCount={itemCount} add={add} remove={remove} quantity={quantity} clearTicket={clearTicket} saleAdjustment={saleAdjustment} setSaleAdjustment={changeSaleAdjustment} setLineAdjustment={setLineAdjustment} setUnitPriceOverride={setUnitPriceOverride} paymentProps={paymentProps} busy={busy} loading={loading} manageCash={manageCash} assignedRegister={cashier ? assignedRegister : registerName} openingAmount={openingAmount} setOpeningAmount={setOpeningAmount} openCash={openCash} closeCash={closeCash} closingAmount={closingAmount} setClosingAmount={setClosingAmount} showClose={showClose} setShowClose={setShowClose} showMovement={showMovement} setShowMovement={setShowMovement} movementProps={{ type: movementType, setType: setMovementType, amount: movementAmount, setAmount: setMovementAmount, note: movementNote, setNote: setMovementNote, busy, error: movementError, close: () => setShowMovement(false), submit: saveMovement }} lastSale={lastSale} setLastSale={setLastSale} canAdjust={canAdjust} canReturn={canReturn} refresh={load} printError={printError} printing={printing} reprintSale={() => lastSale && printDocument('/api/print/sale', { saleId: lastSale.id })}/>;
 
   return <div className="pos-page"><div className="pos-shell">
     <div className="pos-topline"><div><span className="eyebrow">PUNTO DE VENTA</span><h1>Todo listo para <em>cobrar.</em></h1><p>Productos, ticket y pago. Todo en su lugar.</p></div><div className="pos-top-actions"><span className="date-chip"><Clock3 size={15}/>{mounted ? new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Fecha de hoy'}</span>{!cashier && <Link href='/caja?modo=cajero' className='quiet-link'>Pantalla de cajero <ArrowRight size={16}/></Link>}{!cashier && <Link href={insidePanel ? '/panel/ventas' : '/ventas'} className="quiet-link">Ver ventas <ArrowRight size={16}/></Link>}</div></div>

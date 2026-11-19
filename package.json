@@ -1,5 +1,5 @@
 {
-  "name": "caja-sistema-cobros",
+  "name": "zeta-sistema-cobros",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,6 +16,7 @@
     "firebase-admin": "^14.5.0",
     "lucide-react": "^0.468.0",
     "next": "^16.0.0",
+    "node-thermal-printer": "^4.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "xlsx": "^0.18.5"

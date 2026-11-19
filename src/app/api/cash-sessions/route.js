@@ -3,6 +3,12 @@ import { sessionUser } from '@/lib/session';
 import { roundMoney } from '@/lib/models';
 import { fail, json, safeError } from '@/lib/api';
 
+function argentinaDay(value) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value));
+  const part = Object.fromEntries(parts.map(item => [item.type, item.value]));
+  return `${part.year}-${part.month}-${part.day}`;
+}
+
 export async function GET(request) {
   try {
     const user = await sessionUser(); if (!user) return fail('Iniciá sesión.', 401);
@@ -52,7 +58,7 @@ export async function POST(request) {
       if (business.data()?.activeSessionId) return false;
       if (user.role === 'cashier') session.businessName = business.data().name || 'Mi negocio';
       transaction.set(sessionRef, session);
-      transaction.set(businessRef, { ownerId: user.businessId, name: session.businessName, status: business.data()?.status || 'active', activeSessionId: sessionRef.id, nextReceiptNumber: business.data()?.nextReceiptNumber || 1 }, { merge: true });
+      transaction.set(businessRef, { ownerId: user.businessId, name: session.businessName, status: business.data()?.status || 'active', activeSessionId: sessionRef.id, nextReceiptNumber: business.data()?.nextReceiptNumber || 1, nextZNumber: business.data()?.nextZNumber || 1 }, { merge: true });
       return true;
     });
     if (!opened) return fail('Ya hay una caja abierta.', 409);
@@ -81,10 +87,35 @@ export async function PATCH(request) {
         const employee = await transaction.get(businessRef.collection('cashiers').doc(user.uid));
         if (!employee.exists || employee.data().status !== 'active' || employee.data().registerId !== user.registerId || employee.data().permissions?.manageCash !== true) throw new Error('Sin permiso para operar esta caja.');
       }
+      const closedAt = new Date().toISOString();
+      const businessDay = argentinaDay(closedAt);
+      const salesSnap = await transaction.get(db().collection('sales').where('ownerId', '==', user.businessId));
+      const returnsSnap = await transaction.get(db().collection('saleReturns').where('ownerId', '==', user.businessId));
+      const paymentTotals = { cash: 0, card: 0, transfer: 0 };
+      let netTotal = 0; let salesCount = 0; let voidCount = 0; let voidedTotal = 0; let creditTotal = 0;
+      for (const saleDoc of salesSnap.docs) {
+        const sale = saleDoc.data();
+        if (argentinaDay(sale.createdAt) !== businessDay) continue;
+        if (sale.status === 'voided') { voidCount++; voidedTotal = roundMoney(voidedTotal + sale.total); continue; }
+        salesCount++; netTotal = roundMoney(netTotal + sale.total);
+        for (const payment of sale.payments || [{ method: sale.paymentMethod, amount: sale.total }]) {
+          if (payment.method in paymentTotals) paymentTotals[payment.method] = roundMoney(paymentTotals[payment.method] + payment.amount);
+        }
+      }
+      for (const returnDoc of returnsSnap.docs) {
+        const returned = returnDoc.data();
+        if (argentinaDay(returned.createdAt) !== businessDay) continue;
+        creditTotal = roundMoney(creditTotal + returned.amount);
+        if (returned.method in paymentTotals) paymentTotals[returned.method] = roundMoney(paymentTotals[returned.method] - returned.amount);
+      }
+      netTotal = roundMoney(netTotal - creditTotal);
+      const zNumber = business.data()?.nextZNumber || 1;
+      const refundTotal = roundMoney(voidedTotal + creditTotal);
+      const zReport = { businessDay, salesCount, voidCount, voidedTotal, paymentTotals, netTotal, creditTotal, refundTotal };
       const expectedClosingAmount = roundMoney(snap.data().openingAmount + snap.data().cashSalesTotal + (snap.data().cashAdjustmentsTotal || 0));
-      const closed = { id, ...snap.data(), closingAmount: roundMoney(closingAmount), expectedClosingAmount, difference: roundMoney(closingAmount - expectedClosingAmount), status: 'closed', closedAt: new Date().toISOString(), closedBy: user.uid };
-      transaction.update(sessionRef, { closingAmount: closed.closingAmount, expectedClosingAmount, difference: closed.difference, status: 'closed', closedAt: closed.closedAt, closedBy: user.uid });
-      transaction.update(businessRef, { activeSessionId: null });
+      const closed = { id, ...snap.data(), closingAmount: roundMoney(closingAmount), expectedClosingAmount, difference: roundMoney(closingAmount - expectedClosingAmount), paymentTotals, netTotal, creditTotal, refundTotal, zNumber, zReport, status: 'closed', closedAt, closedBy: user.uid };
+      transaction.update(sessionRef, { closingAmount: closed.closingAmount, expectedClosingAmount, difference: closed.difference, paymentTotals, netTotal, creditTotal, refundTotal, zNumber, zReport, status: 'closed', closedAt, closedBy: user.uid });
+      transaction.update(businessRef, { activeSessionId: null, nextZNumber: zNumber + 1 });
       return closed;
     });
     return closed ? json({ session: closed }) : fail('No hay una caja abierta.', 409);
