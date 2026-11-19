@@ -9,7 +9,8 @@ export async function GET(_request, { params }) {
     if (!snap.exists) return fail('Comprobante no encontrado.', 404);
     const sale = snap.data();
     if (sale.ownerId !== user.businessId || (user.role === 'cashier' && sale.cashierId !== user.uid)) return fail('Sin permiso.', 403);
-    return json({ sale: { id: snap.id, ...sale } });
+    const creditsSnap = await db().collection('creditNotes').where('saleId', '==', snap.id).get();
+    return json({ sale: { id: snap.id, ...sale }, creditNotes: creditsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) });
   } catch (error) { return safeError(error); }
 }
 
@@ -35,6 +36,8 @@ export async function PATCH(request, { params }) {
       const sessionRef = database.collection('cashSessions').doc(sale.cashSessionId);
       const sessionSnap = await transaction.get(sessionRef);
       if (!sessionSnap.exists || sessionSnap.data().status !== 'open') throw new Error('La caja de esta venta ya está cerrada.');
+      const credits = await transaction.get(database.collection('creditNotes').where('saleId', '==', id));
+      if (!credits.empty) throw new Error('Esta venta ya tiene una nota de crÃ©dito parcial y no se puede anular completa.');
       const refs = sale.items.map(item => database.collection('products').doc(item.productId));
       const products = await Promise.all(refs.map(ref => transaction.get(ref)));
       if (products.some((snap, index) => !snap.exists || snap.data().ownerId !== user.businessId || !Number.isInteger(sale.items[index].quantity))) throw new Error('No se puede reponer stock: falta un producto de la venta.');
@@ -63,6 +66,7 @@ export async function PATCH(request, { params }) {
     });
     return json({ sale: result });
   } catch (error) {
+    if (error.message.startsWith('Esta venta ya tiene una nota')) return fail(error.message, 409);
     if (['Venta no encontrada.', 'Solo podés anular ventas de la caja que sigue abierta.', 'La caja de esta venta ya está cerrada.', 'No se puede reponer stock: falta un producto de la venta.'].includes(error.message)) return fail(error.message, 409);
     return safeError(error);
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 
 const DEMO_CSS = `
@@ -15,7 +15,7 @@ const DEMO_CSS = `
 .demo-spacer{flex:1}
 .demo-chip{display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:999px;background:#f3ecfd;color:#4b2a85;font-size:12.5px;white-space:nowrap}
 .demo-chip strong{font-weight:700}
-.demo-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.demo-shortcuts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 button.demo-shortcut{min-width:0;display:flex;align-items:center;gap:12px;padding:8px 14px;background:#fff;border:1px solid #e2dcee;border-radius:10px;color:#1c1b22;font:inherit;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(60,30,110,.06);transition:border-color .15s,background .15s}
 button.demo-shortcut:not(:disabled):hover{border-color:#a66de8;background:#faf6fe}
 button.demo-shortcut:disabled{opacity:.45;cursor:not-allowed}
@@ -24,7 +24,9 @@ button.demo-shortcut:not(:disabled):hover .demo-shortcut-key{background:#a66de8;
 .demo-shortcut-label{font-size:12.5px;font-weight:600;line-height:1.25}
 
 /* Tabla */
-.demo-grid{grid-column:1;grid-row:2;min-width:0;min-height:0;display:grid;grid-template-rows:54px minmax(0,1fr);background:#fff;border:1px solid #e2dcee;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(60,30,110,.06)}
+.demo-grid{grid-column:1;grid-row:2;min-width:0;min-height:0;display:grid;grid-template-rows:54px minmax(0,1fr);background:#fff;border:1px solid #e2dcee;border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(60,30,110,.06);transition:opacity .15s,border-color .15s}
+.demo-grid.is-active,.demo-payment.is-active{border-color:#a66de8}
+.is-disabled{opacity:.45;pointer-events:none;filter:grayscale(.3);transition:opacity .15s}
 .demo-search{margin:0;padding:0 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #eee9f6;color:#8a63c4}
 .demo-search:focus-within{background:#faf7fe}
 .demo-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#1c1b22;font:inherit;font-size:14px}
@@ -54,7 +56,7 @@ button.demo-shortcut:not(:disabled):hover .demo-shortcut-key{background:#a66de8;
 .demo-total-label{display:block;font-size:13px;font-weight:600;opacity:.88}
 .demo-total-amount{display:block;margin-top:4px;font-size:clamp(32px,4vw,50px);font-weight:800;line-height:1.1;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis}
 .demo-total-meta{display:block;margin-top:6px;font-size:12px;opacity:.85}
-.demo-payment{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:20px;background:#fff;border:1px solid #e2dcee;border-radius:12px;box-shadow:0 1px 2px rgba(60,30,110,.06)}
+.demo-payment{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:20px;background:#fff;border:1px solid #e2dcee;border-radius:12px;box-shadow:0 1px 2px rgba(60,30,110,.06);transition:opacity .15s,border-color .15s}
 .demo-payment h2{margin:0;font-size:17px;font-weight:700}
 .demo-lines{display:grid;border:1px solid #eee9f6;border-radius:10px}
 .demo-lines div{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid #f0ecf6;font-size:13px;color:#5d5870}
@@ -108,6 +110,7 @@ button.demo-shortcut:not(:disabled):hover .demo-shortcut-key{background:#a66de8;
 .demo-grid{grid-column:1;grid-row:2}
 .demo-summary{grid-column:1;grid-row:3}
 .demo-chip.demo-date{display:none}
+.demo-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}
 button.demo-shortcut{padding:6px 8px;gap:8px}
 .demo-shortcut-key{min-width:36px;height:32px;font-size:13px}
 .demo-shortcut-label{font-size:11px}
@@ -115,6 +118,9 @@ button.demo-shortcut{padding:6px 8px;gap:8px}
 @media(max-width:560px){
 .demo-bar{padding:0 12px;gap:8px}
 .demo-chip{padding:0 10px;font-size:11px}
+.demo-shortcuts{gap:6px}
+button.demo-shortcut{padding:5px 4px;gap:5px;justify-content:center}
+.demo-shortcut-key{min-width:30px;height:30px;padding:0 5px;font-size:12px}
 .demo-shortcut-label br{display:none}
 .demo-table th,.demo-table td{padding:0 10px}
 .demo-table th:nth-child(1),.demo-table td:nth-child(1){display:none}
@@ -132,23 +138,49 @@ const PRODUCTS = [
 ];
 const METHODS = ['Efectivo', 'Tarjeta', 'Transferencia'];
 const money = amount => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(amount);
+const parseSearch = text => {
+  const value = text.trim();
+  const match = value.match(/^(?:(\d{1,4})\s*[x*\u00d7]\s*(.*))$/i);
+  if (match) {
+    return {
+      quantity: Math.max(1, Number(match[1]) || 1),
+      term: match[2].trim().toLowerCase(),
+      hasQuantity: true,
+    };
+  }
+  return { quantity: 1, term: value.toLowerCase(), hasQuantity: false };
+};
 
 export default function DemoPage() {
   const [businessName, setBusinessName] = useState('');
   const [cashierName, setCashierName] = useState('');
   const [started, setStarted] = useState(false);
+  const [mode, setMode] = useState('productos');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState({});
   const [selectedId, setSelectedId] = useState(null);
+  const [lastAddedId, setLastAddedId] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
   const [received, setReceived] = useState('');
   const [adjust, setAdjust] = useState({ kind: 'descuento', pct: 0, cardType: 'Tarjeta de crédito' });
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnValue, setReturnValue] = useState('');
+  const [returnError, setReturnError] = useState('');
+  const [clearCartConfirm, setClearCartConfirm] = useState(false);
   const [draft, setDraft] = useState({ kind: 'descuento', pct: '', cardType: 'Tarjeta de crédito' });
   const [notice, setNotice] = useState(null);
   const [finished, setFinished] = useState(null);
   const [now, setNow] = useState(null);
   const lastAdjustEnter = useRef(0);
+  const searchRef = useRef(null);
+  const receivedRef = useRef(null);
+
+  const focusSearch = useCallback(() => {
+    if (started && mode === 'productos' && !adjustOpen) {
+      searchRef.current?.focus();
+    }
+  }, [started, mode, adjustOpen]);
 
   useEffect(() => {
     const updateClock = () => {
@@ -174,8 +206,9 @@ export default function DemoPage() {
       ?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
 
+  const { term: searchTerm } = parseSearch(search);
   const products = PRODUCTS.filter(product =>
-    `${product.barcode} ${product.name}`.toLowerCase().includes(search.trim().toLowerCase())
+    !searchTerm || `${product.barcode} ${product.name}`.toLowerCase().includes(searchTerm)
   );
 
   const subtotal = useMemo(
@@ -190,6 +223,33 @@ export default function DemoPage() {
   const change = paymentMethod === 'Efectivo' && receivedNumber > total ? receivedNumber - total : 0;
   const inCart = Boolean(selectedId && cart[selectedId]);
 
+  function goToCheckout() {
+    if (total > 0) {
+      setAdjustOpen(false);
+      setReturnOpen(false);
+      setClearCartConfirm(false);
+      setMode('cobro');
+    }
+  }
+
+  function goToProducts() {
+    setAdjustOpen(false);
+    setReturnOpen(false);
+    setClearCartConfirm(false);
+    setMode('productos');
+    focusSearch();
+  }
+
+  useEffect(() => {
+    if (mode === 'productos') {
+      focusSearch();
+    } else if (paymentMethod === 'Efectivo') {
+      receivedRef.current?.focus();
+    } else {
+      document.querySelector(`[data-payment-method="${paymentMethod}"]`)?.focus();
+    }
+  }, [started, mode, adjustOpen, paymentMethod, focusSearch]);
+
   function add(product, quantity = 1) {
     setFinished(null);
     const current = cart[product.id] || 0;
@@ -201,26 +261,31 @@ export default function DemoPage() {
     );
     setCart(items => ({ ...items, [product.id]: next }));
     setSelectedId(product.id);
+    setLastAddedId(product.id);
+    focusSearch();
   }
 
   // Escribir "3*código" y Enter agrega 3 unidades; Enter solo agrega 1
   function submitSearch(event) {
     event.preventDefault();
+    if (mode !== 'productos') return;
     if (!search.trim()) {
       const product = PRODUCTS.find(item => item.id === selectedId) || products[0];
       if (product) add(product);
       return;
     }
 
-    const match = search.trim().match(/^(?:(\d{1,3})\s*\*\s*)?(.+)$/);
-    if (!match) return;
-    const quantity = Math.max(1, Number(match[1]) || 1);
-    const term = match[2].trim().toLowerCase();
-    const product =
-      PRODUCTS.find(item => item.barcode === term) ||
-      PRODUCTS.find(item => `${item.barcode} ${item.name}`.toLowerCase().includes(term));
+    const parsed = parseSearch(search);
+    const { quantity, term } = parsed;
+    const findProduct = value =>
+      PRODUCTS.find(item => item.barcode === value) ||
+      PRODUCTS.find(item => (item.barcode + ' ' + item.name).toLowerCase().includes(value));
+    let product = term ? findProduct(term) : null;
+    if (!product && parsed.hasQuantity && term) {
+      product = findProduct(search.trim().toLowerCase());
+    }
     if (!product) {
-      setNotice({ type: 'error', text: `No se encontró "${match[2].trim()}".` });
+      setNotice({ type: 'error', text: `No se encontró "${term || search.trim()}".` });
       return;
     }
     add(product, quantity);
@@ -228,17 +293,81 @@ export default function DemoPage() {
   }
 
   function removeSelected() {
-    if (!inCart) return;
-    const product = PRODUCTS.find(item => item.id === selectedId);
+    const targetId = inCart
+      ? selectedId
+      : cart[lastAddedId]
+        ? lastAddedId
+        : Object.keys(cart).map(Number).reverse()[0];
+    if (!targetId) {
+      focusSearch();
+      return;
+    }
+    const product = PRODUCTS.find(item => item.id === targetId);
     setCart(items => {
-      const { [selectedId]: removed, ...rest } = items;
+      const { [targetId]: removed, ...rest } = items;
       return rest;
     });
+    setSelectedId(null);
     setNotice({ type: 'ok', text: `Producto eliminado: ${product.name}` });
+    focusSearch();
+  }
+
+  function openProductReturn() {
+    setReturnValue('');
+    setReturnError('');
+    setReturnOpen(true);
+  }
+
+  function applyProductReturn(event) {
+    event?.preventDefault();
+    const match = returnValue.trim().match(/^(?:(\d+)\s*[x*]\s*)?(.+)$/i);
+    if (!match) {
+      setReturnError('Ingresá un código o cantidad x código.');
+      return;
+    }
+    const product = PRODUCTS.find(item => item.barcode === match[2].trim());
+    const existing = product ? cart[product.id] || 0 : 0;
+    if (!product || !existing) {
+      setReturnError('Ese producto no está en la cuenta.');
+      return;
+    }
+    const quantity = match[1] ? Number(match[1]) : existing;
+    if (quantity > existing) {
+      setReturnError(`La cuenta tiene ${existing} unidad${existing === 1 ? '' : 'es'} de ese producto.`);
+      return;
+    }
+    setCart(items => {
+      const remaining = (items[product.id] || 0) - quantity;
+      if (remaining <= 0) {
+        const { [product.id]: removed, ...rest } = items;
+        return rest;
+      }
+      return { ...items, [product.id]: remaining };
+    });
+    setSelectedId(product.id);
+    setReturnOpen(false);
+    setReturnValue('');
+    setReturnError('');
+    setNotice({ type: 'ok', text: `Devueltas ${quantity} unidad${quantity === 1 ? '' : 'es'} de ${product.name}.` });
+    focusSearch();
+  }
+
+  function confirmClearCart() {
+    setCart({});
+    setSelectedId(null);
+    setLastAddedId(null);
+    setReceived('');
+    setAdjust({ kind: 'descuento', pct: 0, cardType: 'Tarjeta de crédito' });
+    setClearCartConfirm(false);
+    setNotice({ type: 'ok', text: 'Se devolvió el total de la cuenta.' });
+    focusSearch();
   }
 
   function decreaseSelected() {
-    if (!inCart) return;
+    if (!inCart) {
+      focusSearch();
+      return;
+    }
     setCart(items => {
       const quantity = items[selectedId];
       if (quantity <= 1) {
@@ -247,6 +376,7 @@ export default function DemoPage() {
       }
       return { ...items, [selectedId]: quantity - 1 };
     });
+    focusSearch();
   }
 
   function openAdjust() {
@@ -256,6 +386,14 @@ export default function DemoPage() {
       cardType: adjust.cardType || 'Tarjeta de crédito',
     });
     setAdjustOpen(true);
+  }
+
+  function closeAllModals() {
+    setAdjustOpen(false);
+    setReturnOpen(false);
+    setReturnError('');
+    setClearCartConfirm(false);
+    goToProducts();
   }
 
   function applyAdjust(event) {
@@ -327,9 +465,11 @@ export default function DemoPage() {
     setFinished({ total, change, method: paymentMethod });
     setCart({});
     setSelectedId(null);
+    setLastAddedId(null);
     setReceived('');
     setAdjust({ kind: 'descuento', pct: 0, cardType: 'Tarjeta de crédito' });
     setNotice(null);
+    setMode('productos');
   }
 
   useEffect(() => {
@@ -340,32 +480,83 @@ export default function DemoPage() {
         target?.closest?.('.demo-search, .demo-table-wrap') || target === document.body
       );
 
-      if (adjustOpen) {
-        if (key === 'ESCAPE') setAdjustOpen(false);
+      const directTypingTarget = mode === 'productos' && (
+        target === document.body || target?.closest?.('.demo-table-wrap')
+      );
+      if (
+        directTypingTarget && event.key.length === 1 &&
+        !event.ctrlKey && !event.altKey && !event.metaKey
+      ) {
+        focusSearch();
         return;
       }
-      if (key === 'F1') {
+
+      if (key === 'F9' || key === 'ESCAPE') {
+        if (key === 'F9') {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        if (adjustOpen || returnOpen || clearCartConfirm || mode === 'cobro') {
+          event.preventDefault();
+          event.stopPropagation();
+          closeAllModals();
+        } else if (key === 'ESCAPE' && mode === 'productos') {
+          setSearch('');
+          focusSearch();
+        }
+        return;
+      }
+      if (adjustOpen || returnOpen || clearCartConfirm) {
+        if (key.startsWith('F')) {
+          event.preventDefault();
+          event.stopPropagation();
+        } else if (key === 'ENTER' && returnOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          applyProductReturn(event);
+        } else if (key === 'ENTER' && clearCartConfirm) {
+          event.preventDefault();
+          event.stopPropagation();
+          confirmClearCart();
+        }
+        return;
+      }
+      if (key === 'F10') {
         event.preventDefault();
         event.stopPropagation();
-        removeSelected();
-      } else if (key === 'F2') {
+        goToCheckout();
+      } else if (key === 'F9') {
         event.preventDefault();
         event.stopPropagation();
-        openAdjust();
-      } else if (key === 'F3') {
+        goToProducts();
+      } else if (key === 'ENTER' && mode === 'cobro' && target?.closest?.('.demo-payment') && !cashShort) {
         event.preventDefault();
         event.stopPropagation();
         closeReceipt();
-      } else if (key === 'ESCAPE') {
-        setSearch('');
-      } else if (catalogHasFocus && (key === 'ARROWDOWN' || key === 'ARROWUP')) {
+      } else if (mode === 'productos' && key === 'F1') {
+        event.preventDefault();
+        event.stopPropagation();
+        removeSelected();
+      } else if (mode === 'productos' && key === 'F2') {
+        event.preventDefault();
+        event.stopPropagation();
+        openProductReturn();
+      } else if (mode === 'productos' && key === 'F3') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (itemCount) setClearCartConfirm(true);
+      } else if (mode === 'productos' && key === 'F4') {
+        event.preventDefault();
+        event.stopPropagation();
+        openAdjust();
+      } else if (mode === 'productos' && catalogHasFocus && (key === 'ARROWDOWN' || key === 'ARROWUP')) {
         if (!products.length) return;
         event.preventDefault();
         const index = products.findIndex(product => product.id === selectedId);
         const step = key === 'ARROWDOWN' ? 1 : -1;
         const next = Math.min(products.length - 1, Math.max(0, (index < 0 ? (step > 0 ? -1 : products.length) : index) + step));
         setSelectedId(products[next].id);
-      } else if (catalogHasFocus && !search.trim() && (key === 'ARROWRIGHT' || key === 'ARROWLEFT')) {
+      } else if (mode === 'productos' && catalogHasFocus && !search.trim() && (key === 'ARROWRIGHT' || key === 'ARROWLEFT')) {
         event.preventDefault();
         const selectedProduct = products.find(product => product.id === selectedId) || products[0];
         if (key === 'ARROWRIGHT' && selectedProduct) {
@@ -377,22 +568,29 @@ export default function DemoPage() {
     }
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [adjustOpen, products, selectedId, total, cashShort]);
+  }, [adjustOpen, returnOpen, clearCartConfirm, products, selectedId, total, itemCount, cashShort, mode, goToCheckout, goToProducts, focusSearch]);
 
   return (
     <>
       <style>{DEMO_CSS}</style>
       {!started && <div className="demo-start">
         <form className="demo-start-card" onSubmit={event => { event.preventDefault(); setBusinessName(businessName.trim()); setCashierName(cashierName.trim()); setStarted(true); }}>
-          <span className="demo-shortcut-key">DEMO</span>
-          <h1>Prepará tu caja</h1>
-          <p>Ingresá el nombre de tu negocio y del cajero para personalizar esta demostración.</p>
+          
+          <h1>Ingresa los datos</h1>
+          
           <label>Nombre del negocio<input value={businessName} onChange={event => setBusinessName(event.target.value)} required minLength={2} maxLength={60} autoFocus placeholder="Mi negocio" /></label>
           <label>Nombre del cajero<input value={cashierName} onChange={event => setCashierName(event.target.value)} required minLength={2} maxLength={60} placeholder="Nombre del cajero" /></label>
           <button type="submit">Entrar a la demo</button>
         </form>
       </div>}
-      <div className={`demo-screen${started ? ' demo-screen-enter' : ''}`}>
+      <div
+        className={`demo-screen${started ? ' demo-screen-enter' : ''}`}
+        onClick={event => {
+          if (!event.target.closest('input,button,select,textarea,a,[contenteditable="true"],[role="button"]')) {
+            focusSearch();
+          }
+        }}
+      >
         <div className="demo-frame">
           <header className="demo-left-head">
             <div className="demo-bar">
@@ -403,28 +601,47 @@ export default function DemoPage() {
               <div className="demo-chip"><strong>{now?.time || '—'}</strong></div>
             </div>
             <div className="demo-shortcuts">
-              <button type="button" className="demo-shortcut" onClick={removeSelected} disabled={!inCart}>
+              <button type="button" className="demo-shortcut" onClick={removeSelected} disabled={!itemCount || mode === 'cobro'}>
                 <span className="demo-shortcut-key">F1</span>
                 <span className="demo-shortcut-label">Eliminar<br />producto</span>
               </button>
-              <button type="button" className="demo-shortcut" onClick={openAdjust}>
+              <button type="button" className="demo-shortcut" onClick={openProductReturn} disabled={mode === 'cobro' || !itemCount}>
                 <span className="demo-shortcut-key">F2</span>
-                <span className="demo-shortcut-label">Descuentos<br />y recargos</span>
+                <span className="demo-shortcut-label">Devolución<br />de producto</span>
               </button>
-              <button type="button" className="demo-shortcut" onClick={closeReceipt} disabled={!total || cashShort}>
+              <button type="button" className="demo-shortcut" onClick={() => itemCount && setClearCartConfirm(true)} disabled={!itemCount || mode === 'cobro'}>
                 <span className="demo-shortcut-key">F3</span>
-                <span className="demo-shortcut-label">Cerrar<br />comprobante</span>
+                <span className="demo-shortcut-label">Devolución total<br />de cuenta</span>
+              </button>
+              <button type="button" className="demo-shortcut" onClick={openAdjust} disabled={mode === 'cobro'}>
+                <span className="demo-shortcut-key">F4</span>
+                <span className="demo-shortcut-label">Ofertas<br />y recargos</span>
+              </button>
+              <button type="button" className="demo-shortcut" onClick={goToProducts} disabled={mode === 'productos'}>
+                <span className="demo-shortcut-key">F9</span>
+                <span className="demo-shortcut-label">Volver a<br />productos</span>
+              </button>
+              <button type="button" className="demo-shortcut" onClick={goToCheckout} disabled={!total || mode === 'cobro'}>
+                <span className="demo-shortcut-key">F10</span>
+                <span className="demo-shortcut-label">Ir a<br />cobro</span>
               </button>
             </div>
           </header>
 
-          <section className="demo-grid">
+          <section className={`demo-grid ${mode === 'cobro' ? 'is-disabled' : 'is-active'}`}>
             <form className="demo-search" onSubmit={submitSearch}>
               <Search size={18} />
               <input
                 value={search}
+                ref={searchRef}
+                onBlur={event => {
+                  const nextTarget = event.relatedTarget;
+                  const isInteractive = nextTarget?.closest?.('input,button,select,textarea,a,[contenteditable="true"],[role="button"],[tabindex]:not([tabindex="-1"])');
+                  if (!nextTarget || !isInteractive) setTimeout(focusSearch, 0);
+                }}
+                disabled={mode === 'cobro'}
                 onChange={event => setSearch(event.target.value)}
-                placeholder="Buscar por código o descripción (3*código para cantidad)"
+                placeholder="Buscar por código o descripción (3x código para cantidad)"
                 aria-label="Buscar por código o descripción"
                 autoComplete="off"
                 autoFocus
@@ -447,7 +664,7 @@ export default function DemoPage() {
                       key={product.id}
                       data-product-id={product.id}
                       className={`${product.id === selectedId ? 'is-selected' : ''} ${cart[product.id] ? 'in-cart' : ''}`}
-                      onClick={() => add(product)}
+                      onClick={() => { if (mode === 'productos') add(product); }}
                     >
                       <td>{product.barcode}</td>
                       <td>{product.name}</td>
@@ -468,7 +685,7 @@ export default function DemoPage() {
               <span className="demo-total-meta">{itemCount} {itemCount === 1 ? 'artículo' : 'artículos'}</span>
             </div>
 
-            <div className="demo-payment">
+            <div className={`demo-payment ${mode === 'productos' ? 'is-disabled' : 'is-active'}`}>
               <h2>Información de pago</h2>
 
               <div className="demo-lines">
@@ -489,6 +706,9 @@ export default function DemoPage() {
                       key={method}
                       type="button"
                       className="demo-method"
+                      data-payment-method={method}
+                      disabled={mode === 'productos'}
+                      tabIndex={mode === 'productos' ? -1 : undefined}
                       aria-pressed={paymentMethod === method}
                       onClick={() => setPaymentMethod(method)}
                     >
@@ -504,6 +724,9 @@ export default function DemoPage() {
                     Efectivo recibido
                     <input
                       className="demo-input"
+                      ref={receivedRef}
+                      disabled={mode === 'productos'}
+                      tabIndex={mode === 'productos' ? -1 : undefined}
                       inputMode="numeric"
                       value={received}
                       onChange={event => setReceived(event.target.value.replace(/\D/g, ''))}
@@ -529,7 +752,7 @@ export default function DemoPage() {
                 </p>
               )}
 
-              <button className="demo-checkout" type="button" disabled={!total || cashShort} onClick={closeReceipt}>
+              <button className="demo-checkout" type="button" disabled={!total || cashShort || mode === 'productos'} tabIndex={mode === 'productos' ? -1 : undefined} onClick={closeReceipt}>
                 {total ? `Cobrar ${money(total)}` : 'Simular cobro'}
               </button>
             </div>
@@ -602,6 +825,34 @@ export default function DemoPage() {
               <button type="submit" className="demo-checkout" data-adjust-action="apply">Aplicar</button>
             </div>
           </form>
+        </div>
+      )}
+      {returnOpen && (
+        <div className="demo-modal" onClick={() => { setReturnOpen(false); setReturnError(''); focusSearch(); }}>
+          <form className="demo-dialog" onClick={event => event.stopPropagation()} onSubmit={applyProductReturn}>
+            <h3>Devolución de producto</h3>
+            <label className="demo-label">
+              Cantidad x código o código para devolver todas las unidades
+              <input className="demo-input" autoFocus value={returnValue} onChange={event => { setReturnValue(event.target.value); setReturnError(''); }} placeholder="3x7791001000012" />
+            </label>
+            {returnError && <p className="demo-notice is-error" role="alert">{returnError}</p>}
+            <div className="demo-dialog-actions">
+              <button type="button" className="demo-checkout is-light" onClick={() => { setReturnOpen(false); setReturnError(''); focusSearch(); }}>Cancelar</button>
+              <button type="submit" className="demo-checkout">Devolver</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {clearCartConfirm && (
+        <div className="demo-modal" onClick={() => setClearCartConfirm(false)}>
+          <div className="demo-dialog" role="alertdialog" aria-modal="true" aria-labelledby="clear-cart-title" onClick={event => event.stopPropagation()}>
+            <h3 id="clear-cart-title">Devolución total de la cuenta</h3>
+            <p>¿Querés quitar todos los productos de esta cuenta?</p>
+            <div className="demo-dialog-actions">
+              <button type="button" className="demo-checkout is-light" onClick={() => { setClearCartConfirm(false); focusSearch(); }}>Cancelar</button>
+              <button type="button" className="demo-checkout" onClick={confirmClearCart}>Confirmar devolución</button>
+            </div>
+          </div>
         </div>
       )}
     </>
