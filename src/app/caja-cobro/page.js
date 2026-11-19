@@ -295,9 +295,9 @@ export default function DemoPage() {
     <>
       {!started && <div className="demo-start">
         <form className="demo-start-card" onSubmit={event => { event.preventDefault(); setBusinessName(businessName.trim()); setCashierName(cashierName.trim()); setStarted(true); }}>
-          <span className="demo-shortcut-key">DEMO</span>
-          <h1>Prepará tu caja</h1>
-          <p>Ingresá el nombre de tu negocio y del cajero para personalizar esta demostración.</p>
+         
+          <h1>Ingresa tus datos</h1>
+          
           <label>Nombre del negocio<input value={businessName} onChange={event => setBusinessName(event.target.value)} required minLength={2} maxLength={60} autoFocus placeholder="Mi negocio" /></label>
           <label>Nombre del cajero<input value={cashierName} onChange={event => setCashierName(event.target.value)} required minLength={2} maxLength={60} placeholder="Nombre del cajero" /></label>
           <button type="submit">Entrar a la demo</button>
